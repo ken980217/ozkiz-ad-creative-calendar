@@ -123,6 +123,39 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:12.5px;font-weight:600;padding:9px 18px;border-radius:100px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;}
 .toast.show{opacity:1;}
+
+/* gallery */
+.gallery-wrap{display:flex;gap:16px;align-items:flex-start;}
+.gallery-cal{width:270px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(107,95,228,.06);position:sticky;top:16px;}
+.cal-week2{display:grid;grid-template-columns:repeat(7,1fr);}
+.cal-week2 div{text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:4px 0;}
+.cal-grid2{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.gcell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;font-size:11px;color:var(--text);position:relative;}
+.gcell:hover{background:var(--surface2);}
+.gcell.other{color:var(--muted);opacity:.35;}
+.gcell.today{font-weight:700;color:var(--accent);}
+.gcell.selected{background:var(--accent);color:#fff;}
+.gcell .gdot{width:4px;height:4px;border-radius:50%;background:var(--accent);margin-top:2px;}
+.gcell.selected .gdot{background:#fff;}
+.gallery-main{flex:1;min-width:0;}
+.gallery-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.gallery-hdr .t{font-size:14px;font-weight:700;}
+.gallery-hdr .clear{font-size:12px;color:var(--accent);cursor:pointer;text-decoration:none;font-weight:600;}
+.gallery-daygroup{margin-bottom:20px;}
+.gallery-daygroup .dh{font-size:12px;font-weight:700;color:var(--muted);margin:0 0 8px 2px;}
+.gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.gitem{position:relative;border-radius:10px;overflow:hidden;background:var(--surface2);border:1px solid var(--border);cursor:pointer;aspect-ratio:1;}
+.gitem:hover{border-color:var(--accent);}
+.gitem img{width:100%;height:100%;object-fit:cover;display:block;}
+.gitem .noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--muted);}
+.gitem .play{position:absolute;top:6px;right:6px;background:rgba(26,24,48,.6);color:#fff;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
+.gitem .cap{position:absolute;left:0;right:0;bottom:0;padding:8px 8px 6px;background:linear-gradient(0deg,rgba(0,0,0,.75),rgba(0,0,0,0));color:#fff;}
+.gitem .cap .tt{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gitem .cap .tags{display:flex;gap:4px;margin-top:3px;}
+@media (max-width:720px){
+  .gallery-wrap{flex-direction:column;}
+  .gallery-cal{width:100%;position:static;}
+}
 </style>
 </head>
 <body>
@@ -131,14 +164,15 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
   <div class="hdr">
     <div class="eyebrow">CREATIVE OPS</div>
     <h1>광고 소재 캘린더</h1>
-    <div class="sub">제작한 광고 소재(이미지·영상)를 날짜별로 한눈에 · 이 브라우저에 저장됩니다</div>
+    <div class="sub">날짜를 클릭해 그날 만든 이미지·영상을 모아보세요 · 이 브라우저에 저장됩니다</div>
   </div>
 
   <div class="metrics" id="metrics"></div>
 
   <div class="toolbar">
     <div class="seg">
-      <button id="viewCalBtn" class="active">▦ 캘린더</button>
+      <button id="viewGalBtn" class="active">🖼 갤러리</button>
+      <button id="viewCalBtn">▦ 캘린더</button>
       <button id="viewTblBtn">☰ 표</button>
     </div>
     <div id="calNav" style="display:flex;align-items:center;gap:6px;">
@@ -155,7 +189,11 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
     <button class="btn primary" id="addBtn">＋ 소재 추가</button>
   </div>
 
-  <div id="calView" class="cal"></div>
+  <div id="galView" class="gallery-wrap">
+    <div class="gallery-cal" id="galCal"></div>
+    <div class="gallery-main" id="galMain"></div>
+  </div>
+  <div id="calView" class="cal" style="display:none;"></div>
   <div id="tblView" class="tblwrap" style="display:none;"></div>
 
 </div>
@@ -230,8 +268,9 @@ function delItem(id){ return new Promise((res,rej)=>{ const r = txStore('readwri
 
 /* ---------- State ---------- */
 let items = [];
-let view = 'cal'; // 'cal' | 'tbl'
+let view = 'gallery'; // 'gallery' | 'cal' | 'tbl'
 let curYear, curMonth; // 0-indexed month
+let gallerySelectedDate = null;
 let editingId = null;
 let pendingBlob = null, pendingThumb = null, pendingMediaType = null, pendingFileName = null, mediaRemoved = false;
 
@@ -277,10 +316,13 @@ function filteredItems(){
 
 function render(){
   renderMetrics();
+  document.getElementById('galView').style.display = view==='gallery' ? '' : 'none';
   document.getElementById('calView').style.display = view==='cal' ? '' : 'none';
   document.getElementById('tblView').style.display = view==='tbl' ? '' : 'none';
-  document.getElementById('calNav').style.visibility = view==='cal' ? 'visible' : 'hidden';
-  if(view==='cal') renderCalendar(); else renderTable();
+  document.getElementById('calNav').style.visibility = view==='tbl' ? 'hidden' : 'visible';
+  if(view==='gallery') renderGallery();
+  else if(view==='cal') renderCalendar();
+  else renderTable();
 }
 
 function renderMetrics(){
@@ -360,6 +402,81 @@ function renderCalendar(){
 function curYM(){ return curYear+'-'+String(curMonth+1).padStart(2,'0'); }
 function prevYM(){ const m = curMonth===0?11:curMonth-1; const y=curMonth===0?curYear-1:curYear; return y+'-'+String(m+1).padStart(2,'0'); }
 function nextYM(){ const m = curMonth===11?0:curMonth+1; const y=curMonth===11?curYear+1:curYear; return y+'-'+String(m+1).padStart(2,'0'); }
+
+/* ---------- Gallery view ---------- */
+function renderGallery(){
+  document.getElementById('galCal').innerHTML = buildMiniCalendarHtml();
+  bindMiniCalendarEvents();
+
+  const main = document.getElementById('galMain');
+  const fitems = filteredItems();
+
+  if(gallerySelectedDate){
+    const dayItems = fitems.filter(it=>it.date===gallerySelectedDate).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    let html = `<div class="gallery-hdr"><div class="t">📅 ${gallerySelectedDate} · ${dayItems.length}개</div><a class="clear" id="galClear">✕ 전체 보기</a></div>`;
+    html += dayItems.length
+      ? `<div class="gallery-grid">${dayItems.map(gitemHtml).join('')}</div>`
+      : `<div class="empty"><div class="ic">📭</div>이 날짜에 등록된 소재가 없어요</div>`;
+    main.innerHTML = html;
+    document.getElementById('galClear').addEventListener('click', ()=>{ gallerySelectedDate=null; renderGallery(); });
+  } else if(fitems.length===0){
+    main.innerHTML = `<div class="empty"><div class="ic">🖼️</div>등록된 소재가 없어요<br>우측 상단 <b>+ 소재 추가</b>로 시작하거나 왼쪽 달력에서 날짜를 선택하세요</div>`;
+  } else {
+    const byDate = {};
+    fitems.forEach(it=> (byDate[it.date] = byDate[it.date]||[]).push(it));
+    const dates = Object.keys(byDate).sort((a,b)=> b.localeCompare(a));
+    let html = `<div class="gallery-hdr"><div class="t">전체 모아보기 · ${fitems.length}개</div></div>`;
+    dates.forEach(d=>{
+      const dayItems = byDate[d].slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      html += `<div class="gallery-daygroup"><div class="dh">${d}</div><div class="gallery-grid">${dayItems.map(gitemHtml).join('')}</div></div>`;
+    });
+    main.innerHTML = html;
+  }
+  main.querySelectorAll('.gitem').forEach(el=> el.addEventListener('click', ()=> openModal(el.dataset.id)));
+}
+function gitemHtml(it){
+  const media = it.thumb ? `<img src="${it.thumb}" loading="lazy">` : `<div class="noimg">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
+  const tcolor = TYPE_COLORS[it.type]||'gray';
+  const scolor = STATUS_COLORS[it.status]||'gray';
+  return `<div class="gitem" data-id="${it.id}" title="${escapeHtml(it.title)}">
+    ${media}
+    ${it.mediaType==='video' ? '<div class="play">▶</div>' : ''}
+    <div class="cap"><div class="tt">${escapeHtml(it.title)}</div><div class="tags"><span class="tag ${tcolor}">${it.type}</span><span class="tag ${scolor}">${it.status}</span></div></div>
+  </div>`;
+}
+function buildMiniCalendarHtml(){
+  const first = new Date(curYear, curMonth, 1);
+  const startWeekday = first.getDay();
+  const daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
+  const daysInPrevMonth = new Date(curYear, curMonth, 0).getDate();
+  const cells = [];
+  for(let i=startWeekday-1;i>=0;i--) cells.push({d:daysInPrevMonth-i, other:true, ym:prevYM()});
+  for(let d=1;d<=daysInMonth;d++) cells.push({d, other:false, ym:curYM()});
+  while(cells.length % 7 !== 0 || cells.length < 42) cells.push({d:cells.length - (startWeekday+daysInMonth) + 1, other:true, ym:nextYM()});
+
+  const fitems = filteredItems();
+  const countByDate = {};
+  fitems.forEach(it=> countByDate[it.date] = (countByDate[it.date]||0)+1);
+
+  const wk = ['일','월','화','수','목','금','토'];
+  const tstr = todayStr();
+  let html = `<div style="font-size:13px;font-weight:700;margin-bottom:8px;">${curYear}년 ${curMonth+1}월</div>
+    <div class="cal-week2">${wk.map(w=>`<div>${w}</div>`).join('')}</div><div class="cal-grid2">`;
+  cells.forEach(c=>{
+    const dateStr = c.ym+'-'+String(c.d).padStart(2,'0');
+    const isToday = dateStr===tstr && !c.other;
+    const isSel = dateStr===gallerySelectedDate;
+    const cnt = countByDate[dateStr]||0;
+    html += `<div class="gcell ${c.other?'other':''} ${isToday?'today':''} ${isSel?'selected':''}" data-date="${dateStr}">${c.d}${cnt?'<div class="gdot"></div>':''}</div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+function bindMiniCalendarEvents(){
+  document.querySelectorAll('.gcell').forEach(el=>{
+    el.addEventListener('click', ()=>{ gallerySelectedDate = el.dataset.date; renderGallery(); });
+  });
+}
 
 function renderTable(){
   const fitems = filteredItems().slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
@@ -560,6 +677,7 @@ function exportCSV(){
 
 /* ---------- Events ---------- */
 function bindEvents(){
+  document.getElementById('viewGalBtn').addEventListener('click', ()=>{ view='gallery'; toggleSeg(); render(); });
   document.getElementById('viewCalBtn').addEventListener('click', ()=>{ view='cal'; toggleSeg(); render(); });
   document.getElementById('viewTblBtn').addEventListener('click', ()=>{ view='tbl'; toggleSeg(); render(); });
   document.getElementById('prevBtn').addEventListener('click', ()=>{ curMonth--; if(curMonth<0){curMonth=11;curYear--;} render(); });
@@ -577,6 +695,7 @@ function bindEvents(){
   document.getElementById('filterStatus').addEventListener('change', render);
 }
 function toggleSeg(){
+  document.getElementById('viewGalBtn').classList.toggle('active', view==='gallery');
   document.getElementById('viewCalBtn').classList.toggle('active', view==='cal');
   document.getElementById('viewTblBtn').classList.toggle('active', view==='tbl');
 }
