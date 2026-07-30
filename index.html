@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OZKIZ · 광고 소재 캘린더</title>
+<title>OZKIZ · 비주얼 갤러리</title>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -125,19 +125,16 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 .toast.show{opacity:1;}
 
 /* gallery */
-.gallery-wrap{display:flex;gap:16px;align-items:flex-start;}
-.gallery-cal{width:270px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(107,95,228,.06);position:sticky;top:16px;}
-.cal-week2{display:grid;grid-template-columns:repeat(7,1fr);}
-.cal-week2 div{text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:4px 0;}
-.cal-grid2{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
-.gcell{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;font-size:11px;color:var(--text);position:relative;}
-.gcell:hover{background:var(--surface2);}
-.gcell.other{color:var(--muted);opacity:.35;}
-.gcell.today{font-weight:700;color:var(--accent);}
-.gcell.selected{background:var(--accent);color:#fff;}
-.gcell .gdot{width:4px;height:4px;border-radius:50%;background:var(--accent);margin-top:2px;}
-.gcell.selected .gdot{background:#fff;}
-.gallery-main{flex:1;min-width:0;}
+.datestrip{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:14px;box-shadow:0 1px 4px rgba(107,95,228,.06);}
+.ds-row{display:flex;flex-wrap:wrap;gap:6px;}
+.ds-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:38px;height:38px;border-radius:9px;background:var(--surface2);cursor:pointer;font-size:12px;font-weight:600;color:var(--text);flex-shrink:0;position:relative;}
+.ds-chip:hover{background:var(--accent-light);}
+.ds-chip.today{box-shadow:inset 0 0 0 1.5px var(--accent);}
+.ds-chip.selected{background:var(--accent);color:#fff;}
+.ds-chip .wd{font-size:8px;color:var(--muted);font-weight:700;line-height:1;}
+.ds-chip.selected .wd{color:rgba(255,255,255,.85);}
+.ds-chip .dsdot{width:4px;height:4px;border-radius:50%;background:var(--accent);position:absolute;bottom:3px;}
+.ds-chip.selected .dsdot{background:#fff;}
 .gallery-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
 .gallery-hdr .t{font-size:14px;font-weight:700;}
 .gallery-hdr .clear{font-size:12px;color:var(--accent);cursor:pointer;text-decoration:none;font-weight:600;}
@@ -152,18 +149,14 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 .gitem .cap{position:absolute;left:0;right:0;bottom:0;padding:8px 8px 6px;background:linear-gradient(0deg,rgba(0,0,0,.75),rgba(0,0,0,0));color:#fff;}
 .gitem .cap .tt{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .gitem .cap .tags{display:flex;gap:4px;margin-top:3px;}
-@media (max-width:720px){
-  .gallery-wrap{flex-direction:column;}
-  .gallery-cal{width:100%;position:static;}
-}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <div class="hdr">
-    <div class="eyebrow">CREATIVE OPS</div>
-    <h1>광고 소재 캘린더</h1>
+    <div class="eyebrow">VISUAL GALLERY</div>
+    <h1>비주얼 갤러리</h1>
     <div class="sub">날짜를 클릭해 그날 만든 이미지·영상을 모아보세요 · 이 브라우저에 저장됩니다</div>
   </div>
 
@@ -189,9 +182,11 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
     <button class="btn primary" id="addBtn">＋ 소재 추가</button>
   </div>
 
-  <div id="galView" class="gallery-wrap">
-    <div class="gallery-cal" id="galCal"></div>
-    <div class="gallery-main" id="galMain"></div>
+  <div id="galView">
+    <div class="datestrip">
+      <div class="ds-row" id="dsRow"></div>
+    </div>
+    <div id="galMain"></div>
   </div>
   <div id="calView" class="cal" style="display:none;"></div>
   <div id="tblView" class="tblwrap" style="display:none;"></div>
@@ -405,8 +400,9 @@ function nextYM(){ const m = curMonth===11?0:curMonth+1; const y=curMonth===11?c
 
 /* ---------- Gallery view ---------- */
 function renderGallery(){
-  document.getElementById('galCal').innerHTML = buildMiniCalendarHtml();
-  bindMiniCalendarEvents();
+  document.getElementById('monthLabel').textContent = `${curYear}년 ${curMonth+1}월`;
+  document.getElementById('dsRow').innerHTML = buildDateStripHtml();
+  bindDateStripEvents();
 
   const main = document.getElementById('galMain');
   const fitems = filteredItems();
@@ -420,7 +416,7 @@ function renderGallery(){
     main.innerHTML = html;
     document.getElementById('galClear').addEventListener('click', ()=>{ gallerySelectedDate=null; renderGallery(); });
   } else if(fitems.length===0){
-    main.innerHTML = `<div class="empty"><div class="ic">🖼️</div>등록된 소재가 없어요<br>우측 상단 <b>+ 소재 추가</b>로 시작하거나 왼쪽 달력에서 날짜를 선택하세요</div>`;
+    main.innerHTML = `<div class="empty"><div class="ic">🖼️</div>등록된 소재가 없어요<br>우측 상단 <b>+ 소재 추가</b>로 시작하거나 위 날짜에서 선택하세요</div>`;
   } else {
     const byDate = {};
     fitems.forEach(it=> (byDate[it.date] = byDate[it.date]||[]).push(it));
@@ -444,36 +440,29 @@ function gitemHtml(it){
     <div class="cap"><div class="tt">${escapeHtml(it.title)}</div><div class="tags"><span class="tag ${tcolor}">${it.type}</span><span class="tag ${scolor}">${it.status}</span></div></div>
   </div>`;
 }
-function buildMiniCalendarHtml(){
-  const first = new Date(curYear, curMonth, 1);
-  const startWeekday = first.getDay();
+function buildDateStripHtml(){
   const daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
-  const daysInPrevMonth = new Date(curYear, curMonth, 0).getDate();
-  const cells = [];
-  for(let i=startWeekday-1;i>=0;i--) cells.push({d:daysInPrevMonth-i, other:true, ym:prevYM()});
-  for(let d=1;d<=daysInMonth;d++) cells.push({d, other:false, ym:curYM()});
-  while(cells.length % 7 !== 0 || cells.length < 42) cells.push({d:cells.length - (startWeekday+daysInMonth) + 1, other:true, ym:nextYM()});
-
   const fitems = filteredItems();
   const countByDate = {};
   fitems.forEach(it=> countByDate[it.date] = (countByDate[it.date]||0)+1);
 
   const wk = ['일','월','화','수','목','금','토'];
   const tstr = todayStr();
-  let html = `<div style="font-size:13px;font-weight:700;margin-bottom:8px;">${curYear}년 ${curMonth+1}월</div>
-    <div class="cal-week2">${wk.map(w=>`<div>${w}</div>`).join('')}</div><div class="cal-grid2">`;
-  cells.forEach(c=>{
-    const dateStr = c.ym+'-'+String(c.d).padStart(2,'0');
-    const isToday = dateStr===tstr && !c.other;
+  let html = '';
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = curYM()+'-'+String(d).padStart(2,'0');
+    const wd = wk[new Date(curYear, curMonth, d).getDay()];
+    const isToday = dateStr===tstr;
     const isSel = dateStr===gallerySelectedDate;
     const cnt = countByDate[dateStr]||0;
-    html += `<div class="gcell ${c.other?'other':''} ${isToday?'today':''} ${isSel?'selected':''}" data-date="${dateStr}">${c.d}${cnt?'<div class="gdot"></div>':''}</div>`;
-  });
-  html += `</div>`;
+    html += `<div class="ds-chip ${isToday?'today':''} ${isSel?'selected':''}" data-date="${dateStr}" title="${dateStr}">
+      <span class="wd">${wd}</span><span>${d}</span>${cnt?'<div class="dsdot"></div>':''}
+    </div>`;
+  }
   return html;
 }
-function bindMiniCalendarEvents(){
-  document.querySelectorAll('.gcell').forEach(el=>{
+function bindDateStripEvents(){
+  document.querySelectorAll('.ds-chip').forEach(el=>{
     el.addEventListener('click', ()=>{ gallerySelectedDate = el.dataset.date; renderGallery(); });
   });
 }
