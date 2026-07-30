@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OZKIZ · 광고 소재 캘린더</title>
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F7F7FB; --surface:#FFFFFF; --surface2:#F2F2F8;
+  --border:rgba(107,95,228,.12); --border2:rgba(107,95,228,.2);
+  --accent:#7F77DD; --accent-light:#EEEDFE; --accent-dark:#534AB7;
+  --red:#E05252; --red-light:#FDEDEB;
+  --green:#2DA882; --green-light:#E3F5EF;
+  --amber:#D97706; --amber-light:#FEF3C7;
+  --text:#1A1830; --muted:#8A88AA;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;}
+a{color:inherit;}
+.wrap{max-width:1180px;margin:0 auto;padding:1.6rem 1.6rem 4rem;}
+
+/* header */
+.hdr{margin-bottom:1.2rem;}
+.hdr .eyebrow{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
+.hdr h1{font-size:22px;font-weight:700;margin:0 0 3px;}
+.hdr .sub{font-size:13px;color:var(--muted);}
+
+/* metric row */
+.metrics{display:flex;gap:10px;margin:1rem 0 1.2rem;flex-wrap:wrap;}
+.metric{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.85rem 1rem;box-shadow:0 1px 4px rgba(107,95,228,.06);}
+.metric .l{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.metric .v{font-size:22px;font-weight:700;}
+.metric .v.green{color:var(--green);}
+.metric .v.amber{color:var(--amber);}
+.metric .v.accent{color:var(--accent);}
+
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:1rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:.7rem .8rem;box-shadow:0 1px 4px rgba(107,95,228,.06);}
+.seg{display:flex;background:var(--surface2);border-radius:8px;padding:2px;}
+.seg button{border:none;background:transparent;color:var(--muted);font-weight:600;font-size:12.5px;padding:6px 12px;border-radius:7px;cursor:pointer;}
+.seg button.active{background:var(--accent);color:#fff;}
+.btn{border:none;border-radius:8px;font-weight:600;font-size:12.5px;padding:7px 13px;cursor:pointer;background:var(--surface2);color:var(--text);border:1px solid var(--border2);}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn.primary{background:var(--accent);color:#fff;border:none;box-shadow:0 2px 10px rgba(127,119,221,.3);}
+.btn.primary:hover{background:var(--accent-dark);color:#fff;}
+.btn.danger{background:var(--red-light);color:#9B1C1C;border:1px solid #F5BCBA;}
+.spacer{flex:1;}
+.input,select{border:1px solid var(--border2);border-radius:8px;background:var(--surface);color:var(--text);font-size:12.5px;padding:7px 10px;font-family:inherit;}
+.input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(127,119,221,.15);}
+.monthlabel{font-size:14px;font-weight:700;min-width:92px;text-align:center;}
+
+/* tag */
+.tag{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:100px;white-space:nowrap;}
+.tag.purple{background:var(--accent-light);color:var(--accent-dark);border:1px solid var(--border2);}
+.tag.green{background:var(--green-light);color:#1A7A5E;border:1px solid #A8DDCA;}
+.tag.red{background:var(--red-light);color:#9B1C1C;border:1px solid #F5BCBA;}
+.tag.amber{background:var(--amber-light);color:#92400E;border:1px solid #FBBF82;}
+.tag.gray{background:var(--surface2);color:var(--muted);border:1px solid var(--border2);}
+
+/* calendar */
+.cal{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(107,95,228,.06);}
+.cal-week{display:grid;grid-template-columns:repeat(7,1fr);background:var(--surface2);border-bottom:1px solid var(--border);}
+.cal-week div{padding:8px 0;text-align:center;font-size:11px;font-weight:700;color:var(--muted);}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);}
+.cal-cell{min-height:118px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:6px;position:relative;transition:background .1s;}
+.cal-cell:nth-child(7n){border-right:none;}
+.cal-cell.other{background:#FBFBFD;}
+.cal-cell.dragover{background:var(--accent-light);}
+.cal-cell .daynum{font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
+.cal-cell.today .daynum{color:var(--accent);}
+.cal-cell.today .daynum span.n{background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:10.5px;}
+.cal-cell .addbtn{opacity:0;cursor:pointer;color:var(--accent);font-weight:700;font-size:13px;}
+.cal-cell:hover .addbtn{opacity:1;}
+.chip{display:flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:3px 5px;margin-bottom:3px;cursor:grab;font-size:10.8px;}
+.chip:hover{border-color:var(--accent);}
+.chip .thumb{width:22px;height:22px;border-radius:4px;object-fit:cover;flex-shrink:0;background:var(--surface2);}
+.chip .thumb.novideo{display:flex;align-items:center;justify-content:center;font-size:11px;}
+.chip .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;}
+.chip .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+/* table */
+.tblwrap{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(107,95,228,.06);}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{background:var(--surface2);text-align:left;padding:9px 10px;font-size:11px;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr.row:hover{background:var(--surface2);cursor:pointer;}
+.rowthumb{width:52px;height:36px;border-radius:6px;object-fit:cover;background:var(--surface2);}
+.rowthumb.novideo{display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--muted);}
+.actionlink{font-size:11.5px;color:var(--muted);text-decoration:none;margin-right:8px;}
+.actionlink:hover{color:var(--accent);}
+.actionlink.del:hover{color:var(--red);}
+
+.empty{text-align:center;padding:2.6rem 1rem;color:var(--muted);font-size:13px;}
+.empty .ic{font-size:26px;margin-bottom:8px;}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(26,24,48,.45);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
+.overlay.show{display:flex;}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;box-shadow:0 12px 40px rgba(26,24,48,.25);}
+.modal-hd{display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.3rem;border-bottom:1px solid var(--border);}
+.modal-hd h3{margin:0;font-size:15px;font-weight:700;}
+.modal-hd .x{cursor:pointer;color:var(--muted);font-size:18px;background:none;border:none;}
+.modal-bd{padding:1.1rem 1.3rem;display:flex;flex-direction:column;gap:12px;}
+.modal-ft{display:flex;gap:8px;justify-content:space-between;padding:1rem 1.3rem;border-top:1px solid var(--border);}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.03em;margin-bottom:5px;}
+.field input[type=text],.field input[type=date],.field textarea{width:100%;border:1px solid var(--border2);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;padding:8px 10px;font-family:inherit;}
+.field textarea{resize:vertical;min-height:56px;}
+.field select{width:100%;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+
+.dropzone{border:1.5px dashed var(--border2);border-radius:10px;background:var(--surface2);padding:1.1rem;text-align:center;cursor:pointer;transition:.15s;}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent);background:var(--accent-light);}
+.dropzone .ic{font-size:22px;margin-bottom:4px;}
+.dropzone .t1{font-size:12.5px;font-weight:600;}
+.dropzone .t2{font-size:11px;color:var(--muted);margin-top:2px;}
+.preview{position:relative;border-radius:10px;overflow:hidden;background:#000;}
+.preview video,.preview img{width:100%;max-height:260px;display:block;object-fit:contain;background:#000;}
+.preview .rm{position:absolute;top:8px;right:8px;background:rgba(26,24,48,.6);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:600;padding:5px 9px;cursor:pointer;}
+.filename{font-size:11px;color:var(--muted);margin-top:5px;}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:12.5px;font-weight:600;padding:9px 18px;border-radius:100px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;}
+.toast.show{opacity:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hdr">
+    <div class="eyebrow">CREATIVE OPS</div>
+    <h1>광고 소재 캘린더</h1>
+    <div class="sub">제작한 광고 소재(이미지·영상)를 날짜별로 한눈에 · 이 브라우저에 저장됩니다</div>
+  </div>
+
+  <div class="metrics" id="metrics"></div>
+
+  <div class="toolbar">
+    <div class="seg">
+      <button id="viewCalBtn" class="active">▦ 캘린더</button>
+      <button id="viewTblBtn">☰ 표</button>
+    </div>
+    <div id="calNav" style="display:flex;align-items:center;gap:6px;">
+      <button class="btn" id="prevBtn">←</button>
+      <button class="btn" id="todayBtn">오늘</button>
+      <button class="btn" id="nextBtn">→</button>
+      <div class="monthlabel" id="monthLabel"></div>
+    </div>
+    <input class="input" id="searchInput" placeholder="🔍 제목·캠페인 검색" style="width:170px;">
+    <select id="filterType"><option value="">전체 유형</option></select>
+    <select id="filterStatus"><option value="">전체 상태</option></select>
+    <div class="spacer"></div>
+    <button class="btn" id="exportBtn">⬇ CSV 내보내기</button>
+    <button class="btn primary" id="addBtn">＋ 소재 추가</button>
+  </div>
+
+  <div id="calView" class="cal"></div>
+  <div id="tblView" class="tblwrap" style="display:none;"></div>
+
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3 id="modalTitle">소재 추가</h3>
+      <button class="x" id="closeModal">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div id="mediaArea"></div>
+      <input type="file" id="fileInput" accept="video/*,image/*" style="display:none;">
+
+      <div class="row2">
+        <div class="field"><label>일자 *</label><input type="date" id="f_date"></div>
+        <div class="field"><label>유형</label>
+          <select id="f_type">
+            <option>릴스</option><option>피드</option><option>캐러셀</option>
+            <option>배너</option><option>카드뉴스</option><option>스토리</option><option>기타</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>제목 *</label><input type="text" id="f_title" placeholder="예: 여름 원피스_후킹A_0730"></div>
+      <div class="row2">
+        <div class="field"><label>캠페인·제품</label><input type="text" id="f_campaign" placeholder="예: 여름신상 원피스"></div>
+        <div class="field"><label>매체</label>
+          <select id="f_platform"><option>메타</option><option>네이버 GFA</option><option>카카오</option><option>틱톡</option><option>기타</option></select>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>상태</label>
+          <select id="f_status"><option>기획</option><option>제작중</option><option>검수중</option><option>게시완료</option><option>보류</option></select>
+        </div>
+        <div class="field"><label>CTA 목표</label><input type="text" id="f_cta" placeholder="예: 링크클릭, 저장"></div>
+      </div>
+      <div class="field"><label>메모</label><textarea id="f_notes" placeholder="후크·연출 포인트, 성과 메모 등"></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn danger" id="deleteBtn" style="display:none;">🗑 삭제</button>
+      <div style="flex:1;"></div>
+      <button class="btn" id="cancelBtn">취소</button>
+      <button class="btn primary" id="saveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- IndexedDB ---------- */
+const DB_NAME = 'ozkizAdCreativeCalendar', STORE = 'creatives';
+let db;
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains(STORE)){
+        d.createObjectStore(STORE,{keyPath:'id'});
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror = e => reject(e);
+  });
+}
+function txStore(mode){ return db.transaction(STORE, mode).objectStore(STORE); }
+function getAll(){ return new Promise((res,rej)=>{ const r = txStore('readonly').getAll(); r.onsuccess=()=>res(r.result); r.onerror=rej; }); }
+function putItem(item){ return new Promise((res,rej)=>{ const r = txStore('readwrite').put(item); r.onsuccess=()=>res(); r.onerror=rej; }); }
+function delItem(id){ return new Promise((res,rej)=>{ const r = txStore('readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=rej; }); }
+
+/* ---------- State ---------- */
+let items = [];
+let view = 'cal'; // 'cal' | 'tbl'
+let curYear, curMonth; // 0-indexed month
+let editingId = null;
+let pendingBlob = null, pendingThumb = null, pendingMediaType = null, pendingFileName = null, mediaRemoved = false;
+
+const TYPE_COLORS = {'릴스':'purple','피드':'green','캐러셀':'amber','배너':'gray','카드뉴스':'purple','스토리':'gray','기타':'gray'};
+const STATUS_COLORS = {'기획':'gray','제작중':'amber','검수중':'purple','게시완료':'green','보류':'red'};
+
+function uuid(){ return 'c_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
+
+/* ---------- Init ---------- */
+async function init(){
+  await openDB();
+  items = await getAll();
+  const now = new Date();
+  curYear = now.getFullYear(); curMonth = now.getMonth();
+  populateFilterOptions();
+  bindEvents();
+  render();
+}
+function populateFilterOptions(){
+  const ft = document.getElementById('filterType');
+  Object.keys(TYPE_COLORS).forEach(t=>{ const o=document.createElement('option'); o.value=t; o.textContent=t; ft.appendChild(o); });
+  const fs = document.getElementById('filterStatus');
+  Object.keys(STATUS_COLORS).forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; fs.appendChild(o); });
+}
+
+/* ---------- Rendering ---------- */
+function filteredItems(){
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  const ft = document.getElementById('filterType').value;
+  const fs = document.getElementById('filterStatus').value;
+  return items.filter(it=>{
+    if(ft && it.type!==ft) return false;
+    if(fs && it.status!==fs) return false;
+    if(q){
+      const hay = (it.title+' '+it.campaign+' '+it.notes).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function render(){
+  renderMetrics();
+  document.getElementById('calView').style.display = view==='cal' ? '' : 'none';
+  document.getElementById('tblView').style.display = view==='tbl' ? '' : 'none';
+  document.getElementById('calNav').style.visibility = view==='cal' ? 'visible' : 'hidden';
+  if(view==='cal') renderCalendar(); else renderTable();
+}
+
+function renderMetrics(){
+  const all = items;
+  const now = new Date(); const ym = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const thisMonth = all.filter(i=>i.date && i.date.startsWith(ym)).length;
+  const done = all.filter(i=>i.status==='게시완료').length;
+  const wip = all.filter(i=>i.status==='제작중').length;
+  const withVideo = all.filter(i=>i.mediaType==='video').length;
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric"><div class="l">전체 소재</div><div class="v">${all.length}개</div></div>
+    <div class="metric"><div class="l">이번 달 등록</div><div class="v accent">${thisMonth}개</div></div>
+    <div class="metric"><div class="l">게시완료</div><div class="v green">${done}개</div></div>
+    <div class="metric"><div class="l">제작중</div><div class="v amber">${wip}개</div></div>
+    <div class="metric"><div class="l">영상 소재</div><div class="v">${withVideo}개</div></div>
+  `;
+}
+
+function renderCalendar(){
+  const labelEl = document.getElementById('monthLabel');
+  labelEl.textContent = `${curYear}년 ${curMonth+1}월`;
+  const first = new Date(curYear, curMonth, 1);
+  const startWeekday = first.getDay();
+  const daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
+  const daysInPrevMonth = new Date(curYear, curMonth, 0).getDate();
+  const cells = [];
+  for(let i=startWeekday-1;i>=0;i--) cells.push({d:daysInPrevMonth-i, other:true, ym:prevYM()});
+  for(let d=1;d<=daysInMonth;d++) cells.push({d, other:false, ym:curYM()});
+  while(cells.length % 7 !== 0 || cells.length < 42) cells.push({d:cells.length - (startWeekday+daysInMonth) + 1, other:true, ym:nextYM()});
+
+  const fitems = filteredItems();
+  const byDate = {};
+  fitems.forEach(it=>{ (byDate[it.date] = byDate[it.date]||[]).push(it); });
+
+  const wk = ['일','월','화','수','목','금','토'];
+  let html = `<div class="cal-week">${wk.map(w=>`<div>${w}</div>`).join('')}</div><div class="cal-grid">`;
+  const tstr = todayStr();
+  cells.forEach(c=>{
+    const dateStr = c.ym+'-'+String(c.d).padStart(2,'0');
+    const isToday = dateStr===tstr && !c.other;
+    const dayItems = byDate[dateStr] || [];
+    html += `<div class="cal-cell ${c.other?'other':''} ${isToday?'today':''}" data-date="${dateStr}">
+      <div class="daynum"><span class="n">${c.d}</span><span class="addbtn" data-quickadd="${dateStr}">＋</span></div>
+      <div class="chiplist">`;
+    dayItems.forEach(it=>{
+      const color = TYPE_COLORS[it.type]||'gray';
+      const thumb = it.thumb ? `<img class="thumb" src="${it.thumb}">` : `<div class="thumb novideo">${it.mediaType==='video'?'🎬':'🖼'}</div>`;
+      html += `<div class="chip" draggable="true" data-id="${it.id}" title="${escapeHtml(it.title)}">
+        ${thumb}<span class="dot tag-dot" style="background:var(--${color==='gray'?'muted':color==='purple'?'accent':color})"></span>
+        <span class="t">${escapeHtml(it.title)}</span></div>`;
+    });
+    html += `</div></div>`;
+  });
+  html += `</div>`;
+  document.getElementById('calView').innerHTML = html;
+
+  // events: click chip -> edit
+  document.querySelectorAll('.chip').forEach(el=>{
+    el.addEventListener('click', ()=> openModal(el.dataset.id));
+    el.addEventListener('dragstart', e=> e.dataTransfer.setData('text/plain', el.dataset.id));
+  });
+  document.querySelectorAll('.addbtn').forEach(el=>{
+    el.addEventListener('click', (e)=>{ e.stopPropagation(); openModal(null, el.dataset.quickadd); });
+  });
+  document.querySelectorAll('.cal-cell').forEach(cell=>{
+    cell.addEventListener('dragover', e=>{ e.preventDefault(); cell.classList.add('dragover'); });
+    cell.addEventListener('dragleave', ()=> cell.classList.remove('dragover'));
+    cell.addEventListener('drop', async e=>{
+      e.preventDefault(); cell.classList.remove('dragover');
+      const id = e.dataTransfer.getData('text/plain');
+      const newDate = cell.dataset.date;
+      const it = items.find(x=>x.id===id);
+      if(it && newDate){ it.date = newDate; await putItem(it); showToast('날짜가 변경됐어요'); render(); }
+    });
+  });
+}
+function curYM(){ return curYear+'-'+String(curMonth+1).padStart(2,'0'); }
+function prevYM(){ const m = curMonth===0?11:curMonth-1; const y=curMonth===0?curYear-1:curYear; return y+'-'+String(m+1).padStart(2,'0'); }
+function nextYM(){ const m = curMonth===11?0:curMonth+1; const y=curMonth===11?curYear+1:curYear; return y+'-'+String(m+1).padStart(2,'0'); }
+
+function renderTable(){
+  const fitems = filteredItems().slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  if(fitems.length===0){
+    document.getElementById('tblView').innerHTML = `<div class="empty"><div class="ic">📭</div>등록된 소재가 없어요<br>우측 상단 <b>+ 소재 추가</b>로 시작하세요</div>`;
+    return;
+  }
+  let html = `<table><thead><tr>
+    <th>미디어</th><th>일자</th><th>제목</th><th>캠페인</th><th>유형</th><th>매체</th><th>상태</th><th>CTA</th><th></th>
+  </tr></thead><tbody>`;
+  fitems.forEach(it=>{
+    const thumb = it.thumb ? `<img class="rowthumb" src="${it.thumb}">` : `<div class="rowthumb novideo">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
+    const tcolor = TYPE_COLORS[it.type]||'gray';
+    const scolor = STATUS_COLORS[it.status]||'gray';
+    html += `<tr class="row" data-id="${it.id}">
+      <td>${thumb}</td>
+      <td>${it.date||'-'}</td>
+      <td style="font-weight:600;">${escapeHtml(it.title)}</td>
+      <td>${escapeHtml(it.campaign||'-')}</td>
+      <td><span class="tag ${tcolor}">${it.type}</span></td>
+      <td>${it.platform||'-'}</td>
+      <td><span class="tag ${scolor}">${it.status}</span></td>
+      <td>${escapeHtml(it.cta||'-')}</td>
+      <td onclick="event.stopPropagation()">
+        <a class="actionlink" onclick="openModal('${it.id}')">편집</a>
+        <a class="actionlink del" onclick="quickDelete('${it.id}')">삭제</a>
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  document.getElementById('tblView').innerHTML = html;
+  document.querySelectorAll('tr.row').forEach(r=> r.addEventListener('click', ()=> openModal(r.dataset.id)));
+}
+async function quickDelete(id){
+  if(!confirm('이 소재를 삭제할까요?')) return;
+  await delItem(id);
+  items = items.filter(i=>i.id!==id);
+  showToast('삭제했어요'); render();
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- Modal ---------- */
+function openModal(id, quickDate){
+  editingId = id;
+  pendingBlob = null; pendingThumb = null; pendingMediaType = null; pendingFileName = null; mediaRemoved = false;
+  document.getElementById('modalTitle').textContent = id ? '소재 편집' : '소재 추가';
+  document.getElementById('deleteBtn').style.display = id ? '' : 'none';
+
+  let it = id ? items.find(x=>x.id===id) : null;
+  document.getElementById('f_date').value = it ? it.date : (quickDate || todayStr());
+  document.getElementById('f_title').value = it ? it.title : '';
+  document.getElementById('f_campaign').value = it ? it.campaign : '';
+  document.getElementById('f_type').value = it ? it.type : '릴스';
+  document.getElementById('f_platform').value = it ? it.platform : '메타';
+  document.getElementById('f_status').value = it ? it.status : '기획';
+  document.getElementById('f_cta').value = it ? it.cta : '';
+  document.getElementById('f_notes').value = it ? it.notes : '';
+
+  renderMediaArea(it);
+  document.getElementById('overlay').classList.add('show');
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('show'); editingId=null; }
+
+function renderMediaArea(it){
+  const area = document.getElementById('mediaArea');
+  const hasExisting = it && it.blob && !mediaRemoved;
+  const hasPending = pendingBlob;
+  if(hasPending || hasExisting){
+    const blob = hasPending ? pendingBlob : it.blob;
+    const mtype = hasPending ? pendingMediaType : it.mediaType;
+    const url = URL.createObjectURL(blob);
+    const fname = hasPending ? pendingFileName : it.mediaName;
+    area.innerHTML = `<div class="preview">
+        ${mtype==='video' ? `<video src="${url}" controls></video>` : `<img src="${url}">`}
+        <button class="rm" id="rmMediaBtn">✕ 제거</button>
+      </div><div class="filename">${escapeHtml(fname||'')}</div>`;
+    document.getElementById('rmMediaBtn').addEventListener('click', ()=>{
+      pendingBlob=null; pendingThumb=null; pendingMediaType=null; pendingFileName=null; mediaRemoved=true;
+      renderMediaArea(it);
+    });
+  } else {
+    area.innerHTML = `<div class="dropzone" id="dropzone">
+      <div class="ic">🎬🖼️</div>
+      <div class="t1">클릭하거나 파일을 끌어다 놓으세요</div>
+      <div class="t2">영상(mp4, mov 등) · 이미지(jpg, png 등) 업로드 가능</div>
+    </div>`;
+    const dz = document.getElementById('dropzone');
+    dz.addEventListener('click', ()=> document.getElementById('fileInput').click());
+    dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag'); });
+    dz.addEventListener('dragleave', ()=> dz.classList.remove('drag'));
+    dz.addEventListener('drop', e=>{
+      e.preventDefault(); dz.classList.remove('drag');
+      if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0], it);
+    });
+  }
+}
+document.getElementById('fileInput').addEventListener('change', (e)=>{
+  if(e.target.files.length) handleFile(e.target.files[0], editingId ? items.find(x=>x.id===editingId) : null);
+  e.target.value = '';
+});
+async function handleFile(file, it){
+  if(!file.type.startsWith('video/') && !file.type.startsWith('image/')){
+    showToast('영상 또는 이미지 파일만 업로드할 수 있어요'); return;
+  }
+  pendingBlob = file;
+  pendingFileName = file.name;
+  pendingMediaType = file.type.startsWith('video/') ? 'video' : 'image';
+  mediaRemoved = false;
+  if(pendingMediaType==='video'){
+    pendingThumb = await grabVideoThumb(file);
+  } else {
+    pendingThumb = await new Promise(res=>{
+      const reader = new FileReader();
+      reader.onload = ()=> res(reader.result);
+      reader.readAsDataURL(file);
+    });
+  }
+  renderMediaArea(it);
+}
+function grabVideoThumb(file){
+  return new Promise((resolve)=>{
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.src = URL.createObjectURL(file);
+    video.muted = true;
+    video.addEventListener('loadeddata', ()=>{
+      try{ video.currentTime = Math.min(0.2, (video.duration||1)/4); }catch(e){ resolve(null); }
+    });
+    video.addEventListener('seeked', ()=>{
+      const canvas = document.createElement('canvas');
+      canvas.width = 320; canvas.height = Math.round(320 * (video.videoHeight/video.videoWidth || 0.56));
+      const ctx = canvas.getContext('2d');
+      try{
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      }catch(e){ resolve(null); }
+      URL.revokeObjectURL(video.src);
+    });
+    video.addEventListener('error', ()=> resolve(null));
+    setTimeout(()=>{ if(video.readyState < 2) resolve(null); }, 4000);
+  });
+}
+
+async function saveModal(){
+  const title = document.getElementById('f_title').value.trim();
+  const date = document.getElementById('f_date').value;
+  if(!title){ showToast('제목을 입력해주세요'); return; }
+  if(!date){ showToast('일자를 선택해주세요'); return; }
+
+  let it = editingId ? items.find(x=>x.id===editingId) : null;
+  const isNew = !it;
+  if(isNew){ it = { id: uuid(), createdAt: Date.now() }; }
+
+  it.date = date;
+  it.title = title;
+  it.campaign = document.getElementById('f_campaign').value.trim();
+  it.type = document.getElementById('f_type').value;
+  it.platform = document.getElementById('f_platform').value;
+  it.status = document.getElementById('f_status').value;
+  it.cta = document.getElementById('f_cta').value.trim();
+  it.notes = document.getElementById('f_notes').value.trim();
+
+  if(pendingBlob){
+    it.blob = pendingBlob; it.mediaType = pendingMediaType; it.mediaName = pendingFileName; it.thumb = pendingThumb;
+  } else if(mediaRemoved){
+    it.blob = null; it.mediaType = 'none'; it.mediaName = null; it.thumb = null;
+  }
+
+  await putItem(it);
+  if(isNew) items.push(it);
+  showToast(isNew ? '소재를 추가했어요' : '저장했어요');
+  closeModal();
+  render();
+}
+async function deleteModal(){
+  if(!editingId) return;
+  if(!confirm('이 소재를 삭제할까요?')) return;
+  await delItem(editingId);
+  items = items.filter(i=>i.id!==editingId);
+  showToast('삭제했어요');
+  closeModal();
+  render();
+}
+
+/* ---------- CSV export ---------- */
+function exportCSV(){
+  const rows = [['일자','제목','캠페인','유형','매체','상태','CTA','메모','미디어유형','파일명']];
+  filteredItems().forEach(it=>{
+    rows.push([it.date,it.title,it.campaign,it.type,it.platform,it.status,it.cta,it.notes,it.mediaType,it.mediaName||'']);
+  });
+  const csv = rows.map(r=> r.map(v=> '"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'ad_creative_calendar.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- Events ---------- */
+function bindEvents(){
+  document.getElementById('viewCalBtn').addEventListener('click', ()=>{ view='cal'; toggleSeg(); render(); });
+  document.getElementById('viewTblBtn').addEventListener('click', ()=>{ view='tbl'; toggleSeg(); render(); });
+  document.getElementById('prevBtn').addEventListener('click', ()=>{ curMonth--; if(curMonth<0){curMonth=11;curYear--;} render(); });
+  document.getElementById('nextBtn').addEventListener('click', ()=>{ curMonth++; if(curMonth>11){curMonth=0;curYear++;} render(); });
+  document.getElementById('todayBtn').addEventListener('click', ()=>{ const n=new Date(); curYear=n.getFullYear(); curMonth=n.getMonth(); render(); });
+  document.getElementById('addBtn').addEventListener('click', ()=> openModal(null));
+  document.getElementById('closeModal').addEventListener('click', closeModal);
+  document.getElementById('cancelBtn').addEventListener('click', closeModal);
+  document.getElementById('saveBtn').addEventListener('click', saveModal);
+  document.getElementById('deleteBtn').addEventListener('click', deleteModal);
+  document.getElementById('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeModal(); });
+  document.getElementById('exportBtn').addEventListener('click', exportCSV);
+  document.getElementById('searchInput').addEventListener('input', render);
+  document.getElementById('filterType').addEventListener('change', render);
+  document.getElementById('filterStatus').addEventListener('change', render);
+}
+function toggleSeg(){
+  document.getElementById('viewCalBtn').classList.toggle('active', view==='cal');
+  document.getElementById('viewTblBtn').classList.toggle('active', view==='tbl');
+}
+
+init();
+</script>
+</body>
+</html>
