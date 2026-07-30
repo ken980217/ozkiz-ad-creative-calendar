@@ -129,6 +129,8 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 
 /* gallery */
 .datestrip{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:14px;box-shadow:0 1px 4px rgba(107,95,228,.06);}
+.ds-toprow{display:flex;justify-content:flex-end;margin-bottom:8px;}
+.seg.small button{padding:5px 11px;font-size:11.5px;}
 .ds-row{display:flex;flex-wrap:wrap;gap:6px;}
 .ds-chip{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:38px;height:38px;border-radius:9px;background:var(--surface2);cursor:pointer;font-size:12px;font-weight:600;color:var(--text);flex-shrink:0;position:relative;}
 .ds-chip:hover{background:var(--accent-light);}
@@ -201,6 +203,12 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 
   <div id="galView">
     <div class="datestrip">
+      <div class="ds-toprow">
+        <div class="seg small">
+          <button id="modeWeekBtn" class="active">주별로 보기</button>
+          <button id="modeDayBtn">일별로 보기</button>
+        </div>
+      </div>
       <div class="ds-row" id="dsRow"></div>
     </div>
     <div id="galMain"></div>
@@ -297,6 +305,7 @@ let items = [];
 let view = 'gallery'; // 'gallery' | 'cal' | 'tbl'
 let curYear, curMonth; // 0-indexed month
 let gallerySelectedDate = null;
+let dateGroupMode = 'week'; // 'week' | 'day'
 let editingId = null;
 let pendingBlob = null, pendingThumb = null, pendingMediaType = null, pendingFileName = null, mediaRemoved = false;
 let pendingFocusX = 50, pendingFocusY = 50;
@@ -445,29 +454,65 @@ function prevYM(){ const m = curMonth===0?11:curMonth-1; const y=curMonth===0?cu
 function nextYM(){ const m = curMonth===11?0:curMonth+1; const y=curMonth===11?curYear+1:curYear; return y+'-'+String(m+1).padStart(2,'0'); }
 
 /* ---------- Gallery view ---------- */
+function weekRangeOf(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  const dow = d.getDay();
+  const start = new Date(d); start.setDate(d.getDate()-dow);
+  const end = new Date(start); end.setDate(start.getDate()+6);
+  return {start, end};
+}
+function toISODate(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function weekKeyOf(dateStr){ return toISODate(weekRangeOf(dateStr).start); }
+function weekLabelOf(dateStr){
+  const {start,end} = weekRangeOf(dateStr);
+  const fmt = (d)=> `${d.getMonth()+1}.${String(d.getDate()).padStart(2,'0')}`;
+  return `${fmt(start)} ~ ${fmt(end)}`;
+}
+
 function renderGallery(){
   document.getElementById('monthLabel').textContent = `${curYear}년 ${curMonth+1}월`;
   document.getElementById('dsRow').innerHTML = buildDateStripHtml();
   bindDateStripEvents();
+  document.getElementById('modeWeekBtn').classList.toggle('active', dateGroupMode==='week');
+  document.getElementById('modeDayBtn').classList.toggle('active', dateGroupMode==='day');
 
   const main = document.getElementById('galMain');
   const fitems = filteredItems();
 
   if(gallerySelectedDate){
-    const dayItems = fitems.filter(it=>it.date===gallerySelectedDate).sort(itemSortCompare);
-    let html = `<div class="gallery-hdr"><div class="t">📅 ${gallerySelectedDate} · ${dayItems.length}개</div><a class="clear" id="galClear">✕ 전체 보기</a></div>`;
-    html += dayItems.length
-      ? `<div class="gallery-grid">${dayItems.map(gitemHtml).join('')}</div>`
-      : `<div class="empty"><div class="ic">📭</div>이 날짜에 등록된 소재가 없어요</div>`;
+    let rangeItems, label;
+    if(dateGroupMode==='week'){
+      const {start,end} = weekRangeOf(gallerySelectedDate);
+      const startISO = toISODate(start), endISO = toISODate(end);
+      rangeItems = fitems.filter(it=> it.date >= startISO && it.date <= endISO).sort(itemSortCompare);
+      label = `🗓 ${weekLabelOf(gallerySelectedDate)} · ${rangeItems.length}개`;
+    } else {
+      rangeItems = fitems.filter(it=>it.date===gallerySelectedDate).sort(itemSortCompare);
+      label = `📅 ${gallerySelectedDate} · ${rangeItems.length}개`;
+    }
+    let html = `<div class="gallery-hdr"><div class="t">${label}</div><a class="clear" id="galClear">✕ 전체 보기</a></div>`;
+    html += rangeItems.length
+      ? `<div class="gallery-grid">${rangeItems.map(gitemHtml).join('')}</div>`
+      : `<div class="empty"><div class="ic">📭</div>이 기간에 등록된 소재가 없어요</div>`;
     main.innerHTML = html;
     document.getElementById('galClear').addEventListener('click', ()=>{ gallerySelectedDate=null; renderGallery(); });
   } else if(fitems.length===0){
     main.innerHTML = `<div class="empty"><div class="ic">🖼️</div>등록된 소재가 없어요<br>우측 상단 <b>+ 소재 추가</b>로 시작하거나 위 날짜에서 선택하세요</div>`;
+  } else if(dateGroupMode==='week'){
+    const byWeek = {};
+    fitems.forEach(it=>{ const k = weekKeyOf(it.date); (byWeek[k]=byWeek[k]||[]).push(it); });
+    const weeks = Object.keys(byWeek).sort((a,b)=> b.localeCompare(a));
+    let html = `<div class="gallery-hdr"><div class="t">전체 모아보기(주별) · ${fitems.length}개</div></div>`;
+    weeks.forEach(k=>{
+      const wItems = byWeek[k].slice().sort(itemSortCompare);
+      html += `<div class="gallery-daygroup"><div class="dh">${weekLabelOf(k)}</div><div class="gallery-grid">${wItems.map(gitemHtml).join('')}</div></div>`;
+    });
+    main.innerHTML = html;
   } else {
     const byDate = {};
     fitems.forEach(it=> (byDate[it.date] = byDate[it.date]||[]).push(it));
     const dates = Object.keys(byDate).sort((a,b)=> b.localeCompare(a));
-    let html = `<div class="gallery-hdr"><div class="t">전체 모아보기 · ${fitems.length}개</div></div>`;
+    let html = `<div class="gallery-hdr"><div class="t">전체 모아보기(일별) · ${fitems.length}개</div></div>`;
     dates.forEach(d=>{
       const dayItems = byDate[d].slice().sort(itemSortCompare);
       html += `<div class="gallery-daygroup"><div class="dh">${d}</div><div class="gallery-grid">${dayItems.map(gitemHtml).join('')}</div></div>`;
@@ -535,12 +580,19 @@ function buildDateStripHtml(){
 
   const wk = ['일','월','화','수','목','금','토'];
   const tstr = todayStr();
+  let selStartISO=null, selEndISO=null;
+  if(gallerySelectedDate && dateGroupMode==='week'){
+    const {start,end} = weekRangeOf(gallerySelectedDate);
+    selStartISO = toISODate(start); selEndISO = toISODate(end);
+  }
   let html = '';
   for(let d=1; d<=daysInMonth; d++){
     const dateStr = curYM()+'-'+String(d).padStart(2,'0');
     const wd = wk[new Date(curYear, curMonth, d).getDay()];
     const isToday = dateStr===tstr;
-    const isSel = dateStr===gallerySelectedDate;
+    const isSel = dateGroupMode==='week'
+      ? (selStartISO!==null && dateStr>=selStartISO && dateStr<=selEndISO)
+      : dateStr===gallerySelectedDate;
     const cnt = countByDate[dateStr]||0;
     html += `<div class="ds-chip ${isToday?'today':''} ${isSel?'selected':''}" data-date="${dateStr}" title="${dateStr}">
       <span class="wd">${wd}</span><span>${d}</span>${cnt?'<div class="dsdot"></div>':''}
@@ -864,6 +916,8 @@ function bindEvents(){
   document.getElementById('lbClose').addEventListener('click', closeLightbox);
   document.getElementById('lightbox').addEventListener('click', (e)=>{ if(e.target.id==='lightbox') closeLightbox(); });
   document.getElementById('lbEditBtn').addEventListener('click', ()=>{ const id = lightboxId; closeLightbox(); openModal(id); });
+  document.getElementById('modeWeekBtn').addEventListener('click', ()=>{ dateGroupMode='week'; renderGallery(); });
+  document.getElementById('modeDayBtn').addEventListener('click', ()=>{ dateGroupMode='day'; renderGallery(); });
   document.getElementById('exportBtn').addEventListener('click', exportCSV);
   document.getElementById('searchInput').addEventListener('input', render);
   document.getElementById('filterType').addEventListener('change', render);
