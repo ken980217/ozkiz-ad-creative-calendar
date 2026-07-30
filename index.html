@@ -317,6 +317,20 @@ async function init(){
   populateFilterOptions();
   bindEvents();
   render();
+  healOversizedThumbs();
+}
+/* one-time cleanup: shrink any old image thumbnails that were saved at full resolution */
+async function healOversizedThumbs(){
+  const targets = items.filter(it=> it.mediaType==='image' && it.thumb && it.thumb.length > 200000);
+  if(!targets.length) return;
+  let changed = false;
+  for(const it of targets){
+    try{
+      const small = await resizeImageDataUrl(it.thumb);
+      if(small && small.length < it.thumb.length){ it.thumb = small; await putItem(it); changed = true; }
+    }catch(e){ /* ignore */ }
+  }
+  if(changed) render();
 }
 function populateFilterOptions(){
   const ft = document.getElementById('filterType');
@@ -723,13 +737,34 @@ async function handleFile(file, it){
   if(pendingMediaType==='video'){
     pendingThumb = await grabVideoThumb(file);
   } else {
-    pendingThumb = await new Promise(res=>{
+    const rawDataUrl = await new Promise(res=>{
       const reader = new FileReader();
       reader.onload = ()=> res(reader.result);
       reader.readAsDataURL(file);
     });
+    pendingThumb = await resizeImageDataUrl(rawDataUrl);
   }
   renderMediaArea(it);
+}
+function resizeImageDataUrl(dataUrl, maxW){
+  maxW = maxW || 480;
+  return new Promise((resolve)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const scale = Math.min(1, maxW / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      try{
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      }catch(e){ resolve(dataUrl); }
+    };
+    img.onerror = ()=> resolve(dataUrl);
+    img.src = dataUrl;
+  });
 }
 function grabVideoThumb(file){
   return new Promise((resolve)=>{
