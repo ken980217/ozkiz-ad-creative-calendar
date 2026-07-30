@@ -141,8 +141,10 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 .gallery-daygroup{margin-bottom:20px;}
 .gallery-daygroup .dh{font-size:12px;font-weight:700;color:var(--muted);margin:0 0 8px 2px;}
 .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,190px));gap:12px;}
-.gitem{position:relative;border-radius:12px;overflow:hidden;background:var(--surface2);border:1px solid var(--border);cursor:pointer;aspect-ratio:1;}
+.gitem{position:relative;border-radius:12px;overflow:hidden;background:var(--surface2);border:1px solid var(--border);cursor:grab;aspect-ratio:1;transition:opacity .15s,outline .1s;}
 .gitem:hover{border-color:var(--accent);}
+.gitem.dragging{opacity:.35;cursor:grabbing;}
+.gitem.drag-over{outline:2.5px solid var(--accent);outline-offset:-2.5px;}
 .gitem img{width:100%;height:100%;object-fit:cover;display:block;}
 .gitem .noimg{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:30px;color:var(--muted);}
 .gitem .play{position:absolute;top:7px;right:7px;background:rgba(26,24,48,.6);color:#fff;font-size:12px;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
@@ -434,7 +436,7 @@ function renderGallery(){
   const fitems = filteredItems();
 
   if(gallerySelectedDate){
-    const dayItems = fitems.filter(it=>it.date===gallerySelectedDate).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    const dayItems = fitems.filter(it=>it.date===gallerySelectedDate).sort(itemSortCompare);
     let html = `<div class="gallery-hdr"><div class="t">📅 ${gallerySelectedDate} · ${dayItems.length}개</div><a class="clear" id="galClear">✕ 전체 보기</a></div>`;
     html += dayItems.length
       ? `<div class="gallery-grid">${dayItems.map(gitemHtml).join('')}</div>`
@@ -449,18 +451,59 @@ function renderGallery(){
     const dates = Object.keys(byDate).sort((a,b)=> b.localeCompare(a));
     let html = `<div class="gallery-hdr"><div class="t">전체 모아보기 · ${fitems.length}개</div></div>`;
     dates.forEach(d=>{
-      const dayItems = byDate[d].slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      const dayItems = byDate[d].slice().sort(itemSortCompare);
       html += `<div class="gallery-daygroup"><div class="dh">${d}</div><div class="gallery-grid">${dayItems.map(gitemHtml).join('')}</div></div>`;
     });
     main.innerHTML = html;
   }
-  main.querySelectorAll('.gitem').forEach(el=> el.addEventListener('click', ()=> openLightbox(el.dataset.id)));
+  main.querySelectorAll('.gitem').forEach(el=> el.addEventListener('click', ()=>{ if(!el.classList.contains('was-dragged')) openLightbox(el.dataset.id); }));
+  main.querySelectorAll('.gallery-grid').forEach(grid=>{
+    const ids = Array.from(grid.querySelectorAll('.gitem')).map(el=>el.dataset.id);
+    const groupItems = ids.map(id=> items.find(x=>x.id===id)).filter(Boolean);
+    bindGalleryDrag(grid, groupItems);
+  });
+}
+function itemSortCompare(a,b){
+  if(a.order!=null && b.order!=null) return a.order-b.order;
+  return (b.createdAt||0)-(a.createdAt||0);
+}
+function bindGalleryDrag(grid, groupItems){
+  grid.querySelectorAll('.gitem').forEach(el=>{
+    el.addEventListener('dragstart', e=>{
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', el.dataset.id);
+      el.classList.add('dragging');
+    });
+    el.addEventListener('dragend', ()=>{
+      el.classList.remove('dragging');
+      setTimeout(()=> el.classList.remove('was-dragged'), 0);
+    });
+    el.addEventListener('dragover', e=>{ e.preventDefault(); el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', ()=> el.classList.remove('drag-over'));
+    el.addEventListener('drop', async e=>{
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      el.classList.add('was-dragged');
+      const srcId = e.dataTransfer.getData('text/plain');
+      const targetId = el.dataset.id;
+      if(!srcId || srcId===targetId) return;
+      const srcIdx = groupItems.findIndex(x=>x.id===srcId);
+      const tgtIdx = groupItems.findIndex(x=>x.id===targetId);
+      if(srcIdx<0 || tgtIdx<0) return;
+      const [moved] = groupItems.splice(srcIdx,1);
+      groupItems.splice(tgtIdx,0,moved);
+      groupItems.forEach((it,i)=>{ it.order = i; });
+      await Promise.all(groupItems.map(it=>putItem(it)));
+      showToast('순서를 변경했어요');
+      renderGallery();
+    });
+  });
 }
 function gitemHtml(it){
   const media = it.thumb ? `<img src="${it.thumb}" loading="lazy">` : `<div class="noimg">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
   const tcolor = TYPE_COLORS[it.type]||'gray';
   const scolor = STATUS_COLORS[it.status]||'gray';
-  return `<div class="gitem" data-id="${it.id}" title="${escapeHtml(it.title)}">
+  return `<div class="gitem" data-id="${it.id}" draggable="true" title="${escapeHtml(it.title)}">
     ${media}
     ${it.mediaType==='video' ? '<div class="play">▶</div>' : ''}
     <div class="cap"><div class="tt">${escapeHtml(it.title)}</div><div class="tags"><span class="tag ${tcolor}">${it.type}</span><span class="tag ${scolor}">${it.status}</span>${it.creator?`<span class="tag gray">👤 ${escapeHtml(it.creator)}</span>`:''}</div></div>
