@@ -148,7 +148,18 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 .gitem .play{position:absolute;top:6px;right:6px;background:rgba(26,24,48,.6);color:#fff;font-size:11px;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;}
 .gitem .cap{position:absolute;left:0;right:0;bottom:0;padding:8px 8px 6px;background:linear-gradient(0deg,rgba(0,0,0,.75),rgba(0,0,0,0));color:#fff;}
 .gitem .cap .tt{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.gitem .cap .tags{display:flex;gap:4px;margin-top:3px;}
+.gitem .cap .tags{display:flex;gap:4px;margin-top:3px;flex-wrap:wrap;}
+
+/* lightbox */
+#lightbox{background:rgba(10,9,20,.92);}
+.lightbox-inner{max-width:92vw;max-height:94vh;display:flex;flex-direction:column;align-items:center;gap:12px;position:relative;}
+.lb-close{position:absolute;top:-44px;right:0;background:rgba(255,255,255,.12);color:#fff;border:none;font-size:18px;width:34px;height:34px;border-radius:50%;cursor:pointer;}
+.lb-close:hover{background:rgba(255,255,255,.22);}
+.lb-media{display:flex;align-items:center;justify-content:center;max-width:92vw;max-height:74vh;}
+.lb-media video,.lb-media img{max-width:92vw;max-height:74vh;border-radius:12px;background:#000;object-fit:contain;display:block;}
+.lb-info{display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;text-align:center;max-width:90vw;}
+.lb-title{font-size:15px;font-weight:700;}
+.lb-meta{font-size:12px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;}
 </style>
 </head>
 <body>
@@ -220,11 +231,12 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
           <select id="f_platform"><option>메타</option><option>네이버 GFA</option><option>카카오</option><option>틱톡</option><option>기타</option></select>
         </div>
       </div>
-      <div class="row2">
+      <div class="row3">
         <div class="field"><label>상태</label>
           <select id="f_status"><option>기획</option><option>제작중</option><option>검수중</option><option>게시완료</option><option>보류</option></select>
         </div>
         <div class="field"><label>CTA 목표</label><input type="text" id="f_cta" placeholder="예: 링크클릭, 저장"></div>
+        <div class="field"><label>제작자</label><input type="text" id="f_creator" placeholder="예: 김오즈"></div>
       </div>
       <div class="field"><label>메모</label><textarea id="f_notes" placeholder="후크·연출 포인트, 성과 메모 등"></textarea></div>
     </div>
@@ -233,6 +245,19 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
       <div style="flex:1;"></div>
       <button class="btn" id="cancelBtn">취소</button>
       <button class="btn primary" id="saveBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fullscreen Lightbox -->
+<div class="overlay" id="lightbox">
+  <div class="lightbox-inner">
+    <button class="lb-close" id="lbClose">✕</button>
+    <div class="lb-media" id="lbMedia"></div>
+    <div class="lb-info">
+      <div class="lb-title" id="lbTitle"></div>
+      <div class="lb-meta" id="lbMeta"></div>
+      <button class="btn" id="lbEditBtn">✎ 소재 편집</button>
     </div>
   </div>
 </div>
@@ -428,7 +453,7 @@ function renderGallery(){
     });
     main.innerHTML = html;
   }
-  main.querySelectorAll('.gitem').forEach(el=> el.addEventListener('click', ()=> openModal(el.dataset.id)));
+  main.querySelectorAll('.gitem').forEach(el=> el.addEventListener('click', ()=> openLightbox(el.dataset.id)));
 }
 function gitemHtml(it){
   const media = it.thumb ? `<img src="${it.thumb}" loading="lazy">` : `<div class="noimg">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
@@ -437,7 +462,7 @@ function gitemHtml(it){
   return `<div class="gitem" data-id="${it.id}" title="${escapeHtml(it.title)}">
     ${media}
     ${it.mediaType==='video' ? '<div class="play">▶</div>' : ''}
-    <div class="cap"><div class="tt">${escapeHtml(it.title)}</div><div class="tags"><span class="tag ${tcolor}">${it.type}</span><span class="tag ${scolor}">${it.status}</span></div></div>
+    <div class="cap"><div class="tt">${escapeHtml(it.title)}</div><div class="tags"><span class="tag ${tcolor}">${it.type}</span><span class="tag ${scolor}">${it.status}</span>${it.creator?`<span class="tag gray">👤 ${escapeHtml(it.creator)}</span>`:''}</div></div>
   </div>`;
 }
 function buildDateStripHtml(){
@@ -474,7 +499,7 @@ function renderTable(){
     return;
   }
   let html = `<table><thead><tr>
-    <th>미디어</th><th>일자</th><th>제목</th><th>캠페인</th><th>유형</th><th>매체</th><th>상태</th><th>CTA</th><th></th>
+    <th>미디어</th><th>일자</th><th>제목</th><th>캠페인</th><th>유형</th><th>매체</th><th>상태</th><th>제작자</th><th>CTA</th><th></th>
   </tr></thead><tbody>`;
   fitems.forEach(it=>{
     const thumb = it.thumb ? `<img class="rowthumb" src="${it.thumb}">` : `<div class="rowthumb novideo">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
@@ -488,6 +513,7 @@ function renderTable(){
       <td><span class="tag ${tcolor}">${it.type}</span></td>
       <td>${it.platform||'-'}</td>
       <td><span class="tag ${scolor}">${it.status}</span></td>
+      <td>${escapeHtml(it.creator||'-')}</td>
       <td>${escapeHtml(it.cta||'-')}</td>
       <td onclick="event.stopPropagation()">
         <a class="actionlink" onclick="openModal('${it.id}')">편집</a>
@@ -522,12 +548,46 @@ function openModal(id, quickDate){
   document.getElementById('f_platform').value = it ? it.platform : '메타';
   document.getElementById('f_status').value = it ? it.status : '기획';
   document.getElementById('f_cta').value = it ? it.cta : '';
+  document.getElementById('f_creator').value = it ? (it.creator||'') : '';
   document.getElementById('f_notes').value = it ? it.notes : '';
 
   renderMediaArea(it);
   document.getElementById('overlay').classList.add('show');
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('show'); editingId=null; }
+
+/* ---------- Lightbox (fullscreen view) ---------- */
+let lightboxId = null;
+function openLightbox(id){
+  const it = items.find(x=>x.id===id);
+  if(!it) return;
+  lightboxId = id;
+  const mediaEl = document.getElementById('lbMedia');
+  if(it.blob){
+    const url = URL.createObjectURL(it.blob);
+    mediaEl.innerHTML = it.mediaType==='video'
+      ? `<video src="${url}" controls autoplay playsinline></video>`
+      : `<img src="${url}">`;
+  } else {
+    mediaEl.innerHTML = `<div class="empty" style="color:rgba(255,255,255,.7)"><div class="ic">${it.mediaType==='video'?'🎬':'🖼'}</div>미디어가 없어요</div>`;
+  }
+  document.getElementById('lbTitle').textContent = it.title;
+  const tcolor = TYPE_COLORS[it.type]||'gray';
+  const scolor = STATUS_COLORS[it.status]||'gray';
+  document.getElementById('lbMeta').innerHTML = `
+    <span>${it.date||''}</span>
+    <span class="tag ${tcolor}">${it.type}</span>
+    <span class="tag ${scolor}">${it.status}</span>
+    ${it.creator ? `<span class="tag gray">👤 ${escapeHtml(it.creator)}</span>` : ''}
+    ${it.campaign ? `<span>· ${escapeHtml(it.campaign)}</span>` : ''}
+  `;
+  document.getElementById('lightbox').classList.add('show');
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('show');
+  document.getElementById('lbMedia').innerHTML = '';
+  lightboxId = null;
+}
 
 function renderMediaArea(it){
   const area = document.getElementById('mediaArea');
@@ -626,6 +686,7 @@ async function saveModal(){
   it.platform = document.getElementById('f_platform').value;
   it.status = document.getElementById('f_status').value;
   it.cta = document.getElementById('f_cta').value.trim();
+  it.creator = document.getElementById('f_creator').value.trim();
   it.notes = document.getElementById('f_notes').value.trim();
 
   if(pendingBlob){
@@ -652,9 +713,9 @@ async function deleteModal(){
 
 /* ---------- CSV export ---------- */
 function exportCSV(){
-  const rows = [['일자','제목','캠페인','유형','매체','상태','CTA','메모','미디어유형','파일명']];
+  const rows = [['일자','제목','캠페인','유형','매체','상태','제작자','CTA','메모','미디어유형','파일명']];
   filteredItems().forEach(it=>{
-    rows.push([it.date,it.title,it.campaign,it.type,it.platform,it.status,it.cta,it.notes,it.mediaType,it.mediaName||'']);
+    rows.push([it.date,it.title,it.campaign,it.type,it.platform,it.status,it.creator||'',it.cta,it.notes,it.mediaType,it.mediaName||'']);
   });
   const csv = rows.map(r=> r.map(v=> '"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8;'});
@@ -678,10 +739,18 @@ function bindEvents(){
   document.getElementById('saveBtn').addEventListener('click', saveModal);
   document.getElementById('deleteBtn').addEventListener('click', deleteModal);
   document.getElementById('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeModal(); });
+  document.getElementById('lbClose').addEventListener('click', closeLightbox);
+  document.getElementById('lightbox').addEventListener('click', (e)=>{ if(e.target.id==='lightbox') closeLightbox(); });
+  document.getElementById('lbEditBtn').addEventListener('click', ()=>{ const id = lightboxId; closeLightbox(); openModal(id); });
   document.getElementById('exportBtn').addEventListener('click', exportCSV);
   document.getElementById('searchInput').addEventListener('input', render);
   document.getElementById('filterType').addEventListener('change', render);
   document.getElementById('filterStatus').addEventListener('change', render);
+  document.addEventListener('keydown', (e)=>{
+    if(e.key !== 'Escape') return;
+    if(document.getElementById('lightbox').classList.contains('show')) closeLightbox();
+    else if(document.getElementById('overlay').classList.contains('show')) closeModal();
+  });
 }
 function toggleSeg(){
   document.getElementById('viewGalBtn').classList.toggle('active', view==='gallery');
