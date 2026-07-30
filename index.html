@@ -120,6 +120,9 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 .preview video,.preview img{width:100%;max-height:260px;display:block;object-fit:contain;background:#000;}
 .preview .rm{position:absolute;top:8px;right:8px;background:rgba(26,24,48,.6);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:600;padding:5px 9px;cursor:pointer;}
 .filename{font-size:11px;color:var(--muted);margin-top:5px;}
+.focus-picker{position:relative;border-radius:10px;overflow:hidden;cursor:crosshair;user-select:none;background:#000;max-height:280px;overflow-y:auto;}
+.focus-picker img{display:block;width:100%;height:auto;}
+.focus-dot{position:absolute;width:20px;height:20px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.45);background:rgba(127,119,221,.55);transform:translate(-50%,-50%);pointer-events:none;}
 
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:12.5px;font-weight:600;padding:9px 18px;border-radius:100px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;}
 .toast.show{opacity:1;}
@@ -296,6 +299,7 @@ let curYear, curMonth; // 0-indexed month
 let gallerySelectedDate = null;
 let editingId = null;
 let pendingBlob = null, pendingThumb = null, pendingMediaType = null, pendingFileName = null, mediaRemoved = false;
+let pendingFocusX = 50, pendingFocusY = 50;
 
 const TYPE_COLORS = {'릴스':'purple','피드':'green','캐러셀':'amber','배너':'gray','카드뉴스':'purple','스토리':'gray','기타':'gray'};
 const STATUS_COLORS = {'기획':'gray','제작중':'amber','검수중':'purple','게시완료':'green','보류':'red'};
@@ -392,7 +396,7 @@ function renderCalendar(){
       <div class="chiplist">`;
     dayItems.forEach(it=>{
       const color = TYPE_COLORS[it.type]||'gray';
-      const thumb = it.thumb ? `<img class="thumb" src="${it.thumb}">` : `<div class="thumb novideo">${it.mediaType==='video'?'🎬':'🖼'}</div>`;
+      const thumb = it.thumb ? `<img class="thumb" src="${it.thumb}" style="object-position:${it.focusX??50}% ${it.focusY??50}%">` : `<div class="thumb novideo">${it.mediaType==='video'?'🎬':'🖼'}</div>`;
       html += `<div class="chip" draggable="true" data-id="${it.id}" title="${escapeHtml(it.title)}">
         ${thumb}<span class="dot tag-dot" style="background:var(--${color==='gray'?'muted':color==='purple'?'accent':color})"></span>
         <span class="t">${escapeHtml(it.title)}</span></div>`;
@@ -500,7 +504,7 @@ function bindGalleryDrag(grid, groupItems){
   });
 }
 function gitemHtml(it){
-  const media = it.thumb ? `<img src="${it.thumb}" loading="lazy">` : `<div class="noimg">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
+  const media = it.thumb ? `<img src="${it.thumb}" loading="lazy" style="object-position:${it.focusX??50}% ${it.focusY??50}%">` : `<div class="noimg">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
   const tcolor = TYPE_COLORS[it.type]||'gray';
   const scolor = STATUS_COLORS[it.status]||'gray';
   return `<div class="gitem" data-id="${it.id}" draggable="true" title="${escapeHtml(it.title)}">
@@ -546,7 +550,7 @@ function renderTable(){
     <th>미디어</th><th>일자</th><th>제목</th><th>캠페인</th><th>유형</th><th>매체</th><th>상태</th><th>제작자</th><th>CTA</th><th></th>
   </tr></thead><tbody>`;
   fitems.forEach(it=>{
-    const thumb = it.thumb ? `<img class="rowthumb" src="${it.thumb}">` : `<div class="rowthumb novideo">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
+    const thumb = it.thumb ? `<img class="rowthumb" src="${it.thumb}" style="object-position:${it.focusX??50}% ${it.focusY??50}%">` : `<div class="rowthumb novideo">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
     const tcolor = TYPE_COLORS[it.type]||'gray';
     const scolor = STATUS_COLORS[it.status]||'gray';
     html += `<tr class="row" data-id="${it.id}">
@@ -581,6 +585,7 @@ function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':
 function openModal(id, quickDate){
   editingId = id;
   pendingBlob = null; pendingThumb = null; pendingMediaType = null; pendingFileName = null; mediaRemoved = false;
+  { const _it = id ? items.find(x=>x.id===id) : null; pendingFocusX = _it && _it.focusX!=null ? _it.focusX : 50; pendingFocusY = _it && _it.focusY!=null ? _it.focusY : 50; }
   document.getElementById('modalTitle').textContent = id ? '소재 편집' : '소재 추가';
   document.getElementById('deleteBtn').style.display = id ? '' : 'none';
 
@@ -642,14 +647,24 @@ function renderMediaArea(it){
     const mtype = hasPending ? pendingMediaType : it.mediaType;
     const url = URL.createObjectURL(blob);
     const fname = hasPending ? pendingFileName : it.mediaName;
+    const thumbSrc = hasPending ? pendingThumb : it.thumb;
     area.innerHTML = `<div class="preview">
         ${mtype==='video' ? `<video src="${url}" controls></video>` : `<img src="${url}">`}
         <button class="rm" id="rmMediaBtn">✕ 제거</button>
-      </div><div class="filename">${escapeHtml(fname||'')}</div>`;
+      </div><div class="filename">${escapeHtml(fname||'')}</div>` +
+      (thumbSrc ? `<div class="field" style="margin-top:2px;">
+        <label>썸네일에 보여질 부분</label>
+        <div class="focus-picker" id="focusPicker">
+          <img id="focusImg" src="${thumbSrc}">
+          <div class="focus-dot" id="focusDot" style="left:${pendingFocusX}%;top:${pendingFocusY}%;"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:5px;">이미지를 클릭하거나 점을 끌어서 갤러리·표에 보일 위치를 정하세요</div>
+      </div>` : '');
     document.getElementById('rmMediaBtn').addEventListener('click', ()=>{
       pendingBlob=null; pendingThumb=null; pendingMediaType=null; pendingFileName=null; mediaRemoved=true;
       renderMediaArea(it);
     });
+    if(thumbSrc) bindFocusPicker();
   } else {
     area.innerHTML = `<div class="dropzone" id="dropzone">
       <div class="ic">🎬🖼️</div>
@@ -666,6 +681,32 @@ function renderMediaArea(it){
     });
   }
 }
+function bindFocusPicker(){
+  const picker = document.getElementById('focusPicker');
+  const img = document.getElementById('focusImg');
+  const dot = document.getElementById('focusDot');
+  if(!picker || !img || !dot) return;
+  function setFromEvent(e){
+    const rect = img.getBoundingClientRect();
+    const point = e.touches ? e.touches[0] : e;
+    let x = (point.clientX - rect.left) / rect.width * 100;
+    let y = (point.clientY - rect.top) / rect.height * 100;
+    x = Math.max(0, Math.min(100, x));
+    y = Math.max(0, Math.min(100, y));
+    pendingFocusX = x; pendingFocusY = y;
+    dot.style.left = x + '%';
+    dot.style.top = y + '%';
+  }
+  function onMove(e){ setFromEvent(e); }
+  function onUp(){
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onUp);
+  }
+  picker.addEventListener('mousedown', e=>{ setFromEvent(e); document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp); });
+  picker.addEventListener('touchstart', e=>{ setFromEvent(e); document.addEventListener('touchmove', onMove, {passive:true}); document.addEventListener('touchend', onUp); }, {passive:true});
+}
 document.getElementById('fileInput').addEventListener('change', (e)=>{
   if(e.target.files.length) handleFile(e.target.files[0], editingId ? items.find(x=>x.id===editingId) : null);
   e.target.value = '';
@@ -678,6 +719,7 @@ async function handleFile(file, it){
   pendingFileName = file.name;
   pendingMediaType = file.type.startsWith('video/') ? 'video' : 'image';
   mediaRemoved = false;
+  pendingFocusX = 50; pendingFocusY = 50;
   if(pendingMediaType==='video'){
     pendingThumb = await grabVideoThumb(file);
   } else {
@@ -738,6 +780,7 @@ async function saveModal(){
   } else if(mediaRemoved){
     it.blob = null; it.mediaType = 'none'; it.mediaName = null; it.thumb = null;
   }
+  if(it.thumb){ it.focusX = pendingFocusX; it.focusY = pendingFocusY; }
 
   await putItem(it);
   if(isNew) items.push(it);
