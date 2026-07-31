@@ -123,6 +123,15 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 .filename{font-size:11px;color:var(--muted);margin-top:5px;}
 .focus-picker{position:relative;border-radius:10px;overflow:hidden;cursor:crosshair;user-select:none;background:#000;max-height:280px;overflow-y:auto;}
 .focus-picker img{display:block;width:100%;height:auto;}
+.slide-thumbs{display:flex;flex-wrap:wrap;gap:8px;}
+.slide-thumb-item{position:relative;width:74px;height:74px;border-radius:8px;overflow:hidden;background:var(--surface2);border:1px solid var(--border);}
+.slide-thumb-item img{width:100%;height:100%;object-fit:cover;display:block;}
+.slide-thumb-num{position:absolute;left:4px;bottom:3px;background:rgba(26,24,48,.6);color:#fff;font-size:9.5px;font-weight:700;border-radius:100px;padding:1px 6px;}
+.slide-thumb-rm{position:absolute;top:3px;right:3px;width:18px;height:18px;border:none;border-radius:50%;background:rgba(26,24,48,.65);color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.slide-thumb-rm:hover{background:var(--red);}
+.slide-thumb-add{width:74px;height:74px;border-radius:8px;border:1.5px dashed var(--border2);background:var(--surface2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;color:var(--muted);font-size:10.5px;}
+.slide-thumb-add:hover{border-color:var(--accent);color:var(--accent);}
+.slide-thumb-add .ic{font-size:16px;}
 .focus-dot{position:absolute;width:20px;height:20px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.45);background:rgba(127,119,221,.55);transform:translate(-50%,-50%);pointer-events:none;}
 
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:12.5px;font-weight:600;padding:9px 18px;border-radius:100px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:100;opacity:0;transition:opacity .2s;pointer-events:none;}
@@ -163,6 +172,15 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 .gitem .purchase-chk:hover{background:rgba(26,24,48,.75);}
 .gitem.purchased .purchase-chk{background:var(--green);}
 .gitem .purchase-chk input{width:16px;height:16px;cursor:pointer;accent-color:var(--green);}
+.gitem .slide-badge{position:absolute;top:7px;right:7px;background:rgba(26,24,48,.6);color:#fff;font-size:10px;font-weight:700;border-radius:100px;padding:2px 8px;}
+.gitem .slide-nav{position:absolute;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;border:none;background:rgba(26,24,48,.5);color:#fff;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .12s,background .12s;z-index:3;}
+.gitem:hover .slide-nav{opacity:1;}
+.gitem .slide-nav:hover{background:rgba(26,24,48,.8);}
+.gitem .slide-nav.prev{left:6px;}
+.gitem .slide-nav.next{right:6px;}
+.gitem .slide-dots{position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;gap:3px;}
+.gitem .slide-dots .sdot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.45);}
+.gitem .slide-dots .sdot.on{background:#fff;}
 
 /* lightbox */
 #lightbox{background:rgba(10,9,20,.92);}
@@ -174,6 +192,13 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 .lb-info{display:flex;flex-direction:column;align-items:center;gap:6px;color:#fff;text-align:center;max-width:90vw;}
 .lb-title{font-size:15px;font-weight:700;}
 .lb-meta{font-size:12px;color:rgba(255,255,255,.7);display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;}
+.lb-slide-wrap{position:relative;display:flex;align-items:center;justify-content:center;max-width:92vw;max-height:74vh;}
+.lb-slide-wrap img{max-width:92vw;max-height:74vh;border-radius:12px;background:#000;object-fit:contain;display:block;}
+.lb-slide-nav{position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;border:none;background:rgba(255,255,255,.14);color:#fff;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.lb-slide-nav:hover{background:rgba(255,255,255,.26);}
+.lb-slide-nav.prev{left:10px;}
+.lb-slide-nav.next{right:10px;}
+.lb-slide-count{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(26,24,48,.6);color:#fff;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:100px;}
 </style>
 </head>
 <body>
@@ -235,14 +260,13 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
     </div>
     <div class="modal-bd">
       <div id="mediaArea"></div>
-      <input type="file" id="fileInput" accept="video/*,image/*" style="display:none;">
+      <input type="file" id="fileInput" accept="image/*" style="display:none;">
 
       <div class="row2">
         <div class="field"><label>일자 *</label><input type="date" id="f_date"></div>
         <div class="field"><label>유형</label>
           <select id="f_type">
-            <option>릴스</option><option>피드</option><option>캐러셀</option>
-            <option>배너</option><option>카드뉴스</option><option>스토리</option><option>기타</option>
+            <option>이미지</option><option>비디오</option><option>슬라이드 광고</option>
           </select>
         </div>
       </div>
@@ -317,8 +341,11 @@ let dateGroupMode = 'week'; // 'week' | 'day'
 let editingId = null;
 let pendingBlob = null, pendingThumb = null, pendingMediaType = null, pendingFileName = null, mediaRemoved = false;
 let pendingFocusX = 50, pendingFocusY = 50;
+let pendingSlides = [];
+let slideIndex = {}; // in-memory current-slide-index per item id, for gallery thumbnail paging
+let lbSlideIndex = 0;
 
-const TYPE_COLORS = {'릴스':'purple','피드':'green','캐러셀':'amber','배너':'gray','카드뉴스':'purple','스토리':'gray','기타':'gray'};
+const TYPE_COLORS = {'이미지':'purple','비디오':'green','슬라이드 광고':'amber'};
 const STATUS_COLORS = {'기획':'gray','제작중':'amber','검수중':'purple','게시완료':'green','보류':'red'};
 
 function uuid(){ return 'c_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
@@ -335,6 +362,19 @@ async function init(){
   bindEvents();
   render();
   healOversizedThumbs();
+  migrateLegacyTypes();
+}
+/* one-time cleanup: old items used a 7-option 유형 taxonomy (릴스/피드/캐러셀/배너/카드뉴스/스토리/기타).
+   Map any of those onto the new 3-option 이미지/비디오/슬라이드 광고 taxonomy based on their actual media. */
+async function migrateLegacyTypes(){
+  const valid = Object.keys(TYPE_COLORS);
+  const targets = items.filter(it=> !valid.includes(it.type));
+  if(!targets.length) return;
+  for(const it of targets){
+    it.type = it.mediaType==='video' ? '비디오' : '이미지';
+    await putItem(it);
+  }
+  render();
 }
 /* one-time cleanup: shrink any old image thumbnails that were saved at full resolution */
 async function healOversizedThumbs(){
@@ -540,6 +580,8 @@ function renderGallery(){
       showToast(it.purchased ? '구매전환 소재로 표시했어요' : '표시를 해제했어요');
     });
   });
+  main.querySelectorAll('[data-slide-prev]').forEach(btn=> btn.addEventListener('click', e=>{ e.stopPropagation(); stepSlide(btn.dataset.slidePrev, -1); }));
+  main.querySelectorAll('[data-slide-next]').forEach(btn=> btn.addEventListener('click', e=>{ e.stopPropagation(); stepSlide(btn.dataset.slideNext, 1); }));
   main.querySelectorAll('.gallery-grid').forEach(grid=>{
     const ids = Array.from(grid.querySelectorAll('.gitem')).map(el=>el.dataset.id);
     const groupItems = ids.map(id=> items.find(x=>x.id===id)).filter(Boolean);
@@ -583,17 +625,47 @@ function bindGalleryDrag(grid, groupItems){
   });
 }
 function gitemHtml(it){
-  const media = it.thumb ? `<img src="${it.thumb}" loading="lazy" style="object-position:${it.focusX??50}% ${it.focusY??50}%">` : `<div class="noimg">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
   const tcolor = TYPE_COLORS[it.type]||'gray';
   const scolor = STATUS_COLORS[it.status]||'gray';
+  let media, badge;
+  if(it.mediaType==='slide' && it.slides && it.slides.length){
+    const idx = slideIndex[it.id]||0;
+    const n = it.slides.length;
+    const s = it.slides[idx] || it.slides[0];
+    media = `<img data-slide-img="${it.id}" src="${s.thumb}" loading="lazy" style="object-position:${s.focusX??50}% ${s.focusY??50}%">`;
+    badge = `<div class="slide-badge" data-slide-badge="${it.id}">🖼 ${idx+1}/${n}</div>`
+      + (n>1 ? `
+      <button class="slide-nav prev" data-slide-prev="${it.id}" onclick="event.stopPropagation()" ondragstart="event.preventDefault();event.stopPropagation();">‹</button>
+      <button class="slide-nav next" data-slide-next="${it.id}" onclick="event.stopPropagation()" ondragstart="event.preventDefault();event.stopPropagation();">›</button>
+      <div class="slide-dots" data-slide-dots="${it.id}">${it.slides.map((_,i)=>`<span class="sdot ${i===idx?'on':''}"></span>`).join('')}</div>` : '');
+  } else {
+    media = it.thumb ? `<img src="${it.thumb}" loading="lazy" style="object-position:${it.focusX??50}% ${it.focusY??50}%">` : `<div class="noimg">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
+    badge = it.mediaType==='video' ? '<div class="play">▶</div>' : '';
+  }
   return `<div class="gitem ${it.purchased?'purchased':''}" data-id="${it.id}" draggable="true" title="${escapeHtml(it.title)}">
     <label class="purchase-chk" title="구매전환 소재로 표시" onclick="event.stopPropagation()" ondragstart="event.preventDefault();event.stopPropagation();">
       <input type="checkbox" data-purchase-id="${it.id}" ${it.purchased?'checked':''}>
     </label>
     ${media}
-    ${it.mediaType==='video' ? '<div class="play">▶</div>' : ''}
+    ${badge}
     <div class="cap"><div class="tt">${escapeHtml(it.title)}</div><div class="tags"><span class="tag ${tcolor}">${it.type}</span><span class="tag ${scolor}">${it.status}</span>${it.creator?`<span class="tag gray">👤 ${escapeHtml(it.creator)}</span>`:''}</div></div>
   </div>`;
+}
+function stepSlide(id, dir){
+  const it = items.find(x=>x.id===id);
+  if(!it || !it.slides || !it.slides.length) return;
+  const n = it.slides.length;
+  const idx = ((slideIndex[id]||0) + dir + n) % n;
+  slideIndex[id] = idx;
+  const card = document.querySelector(`.gitem[data-id="${id}"]`);
+  if(!card) return;
+  const s = it.slides[idx];
+  const img = card.querySelector('[data-slide-img]');
+  if(img){ img.src = s.thumb; img.style.objectPosition = `${s.focusX??50}% ${s.focusY??50}%`; }
+  const badge = card.querySelector('[data-slide-badge]');
+  if(badge) badge.textContent = `🖼 ${idx+1}/${n}`;
+  const dots = card.querySelector('[data-slide-dots]');
+  if(dots) dots.querySelectorAll('.sdot').forEach((d,i)=> d.classList.toggle('on', i===idx));
 }
 function buildDateStripHtml(){
   const daysInMonth = new Date(curYear, curMonth+1, 0).getDate();
@@ -674,23 +746,32 @@ function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':
 function openModal(id, quickDate){
   editingId = id;
   pendingBlob = null; pendingThumb = null; pendingMediaType = null; pendingFileName = null; mediaRemoved = false;
-  { const _it = id ? items.find(x=>x.id===id) : null; pendingFocusX = _it && _it.focusX!=null ? _it.focusX : 50; pendingFocusY = _it && _it.focusY!=null ? _it.focusY : 50; }
+  let it = id ? items.find(x=>x.id===id) : null;
+  pendingFocusX = it && it.focusX!=null ? it.focusX : 50; pendingFocusY = it && it.focusY!=null ? it.focusY : 50;
+  pendingSlides = (it && it.type==='슬라이드 광고' && it.slides) ? it.slides.map(s=>({...s})) : [];
   document.getElementById('modalTitle').textContent = id ? '소재 편집' : '소재 추가';
   document.getElementById('deleteBtn').style.display = id ? '' : 'none';
 
-  let it = id ? items.find(x=>x.id===id) : null;
   document.getElementById('f_date').value = it ? it.date : (quickDate || todayStr());
   document.getElementById('f_title').value = it ? it.title : '';
   document.getElementById('f_campaign').value = it ? it.campaign : '';
-  document.getElementById('f_type').value = it ? it.type : '릴스';
+  document.getElementById('f_type').value = it ? it.type : '이미지';
   document.getElementById('f_platform').value = it ? it.platform : '메타';
   document.getElementById('f_status').value = it ? it.status : '기획';
   document.getElementById('f_cta').value = it ? it.cta : '';
   document.getElementById('f_creator').value = it ? (it.creator||'') : '';
   document.getElementById('f_notes').value = it ? it.notes : '';
 
+  updateFileInputAccept();
   renderMediaArea(it);
   document.getElementById('overlay').classList.add('show');
+}
+function updateFileInputAccept(){
+  const type = document.getElementById('f_type').value;
+  const input = document.getElementById('fileInput');
+  if(type==='슬라이드 광고'){ input.accept = 'image/*'; input.multiple = true; }
+  else if(type==='비디오'){ input.accept = 'video/*'; input.multiple = false; }
+  else { input.accept = 'image/*'; input.multiple = false; }
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('show'); editingId=null; }
 
@@ -700,14 +781,19 @@ function openLightbox(id){
   const it = items.find(x=>x.id===id);
   if(!it) return;
   lightboxId = id;
-  const mediaEl = document.getElementById('lbMedia');
-  if(it.blob){
-    const url = URL.createObjectURL(it.blob);
-    mediaEl.innerHTML = it.mediaType==='video'
-      ? `<video src="${url}" controls autoplay playsinline></video>`
-      : `<img src="${url}">`;
+  if(it.mediaType==='slide' && it.slides && it.slides.length){
+    lbSlideIndex = 0;
+    renderLbSlide(it);
   } else {
-    mediaEl.innerHTML = `<div class="empty" style="color:rgba(255,255,255,.7)"><div class="ic">${it.mediaType==='video'?'🎬':'🖼'}</div>미디어가 없어요</div>`;
+    const mediaEl = document.getElementById('lbMedia');
+    if(it.blob){
+      const url = URL.createObjectURL(it.blob);
+      mediaEl.innerHTML = it.mediaType==='video'
+        ? `<video src="${url}" controls autoplay playsinline></video>`
+        : `<img src="${url}">`;
+    } else {
+      mediaEl.innerHTML = `<div class="empty" style="color:rgba(255,255,255,.7)"><div class="ic">${it.mediaType==='video'?'🎬':'🖼'}</div>미디어가 없어요</div>`;
+    }
   }
   document.getElementById('lbTitle').textContent = it.title;
   const tcolor = TYPE_COLORS[it.type]||'gray';
@@ -721,6 +807,23 @@ function openLightbox(id){
   `;
   document.getElementById('lightbox').classList.add('show');
 }
+function renderLbSlide(it){
+  const mediaEl = document.getElementById('lbMedia');
+  const idx = lbSlideIndex;
+  const n = it.slides.length;
+  mediaEl.innerHTML = `<div class="lb-slide-wrap">
+    <img src="${it.slides[idx].thumb}">
+    ${n>1 ? `
+      <button class="lb-slide-nav prev" id="lbSlidePrev">‹</button>
+      <button class="lb-slide-nav next" id="lbSlideNext">›</button>
+      <div class="lb-slide-count">${idx+1} / ${n}</div>
+    ` : ''}
+  </div>`;
+  if(n>1){
+    document.getElementById('lbSlidePrev').addEventListener('click', ()=>{ lbSlideIndex = (lbSlideIndex-1+n)%n; renderLbSlide(it); });
+    document.getElementById('lbSlideNext').addEventListener('click', ()=>{ lbSlideIndex = (lbSlideIndex+1)%n; renderLbSlide(it); });
+  }
+}
 function closeLightbox(){
   document.getElementById('lightbox').classList.remove('show');
   document.getElementById('lbMedia').innerHTML = '';
@@ -728,6 +831,7 @@ function closeLightbox(){
 }
 
 function renderMediaArea(it){
+  if(document.getElementById('f_type').value==='슬라이드 광고'){ renderSlideArea(it); return; }
   const area = document.getElementById('mediaArea');
   const hasExisting = it && it.blob && !mediaRemoved;
   const hasPending = pendingBlob;
@@ -755,10 +859,11 @@ function renderMediaArea(it){
     });
     if(thumbSrc) bindFocusPicker();
   } else {
+    const isVideo = document.getElementById('f_type').value==='비디오';
     area.innerHTML = `<div class="dropzone" id="dropzone">
-      <div class="ic">🎬🖼️</div>
+      <div class="ic">${isVideo?'🎬':'🖼️'}</div>
       <div class="t1">클릭하거나 파일을 끌어다 놓으세요</div>
-      <div class="t2">영상(mp4, mov 등) · 이미지(jpg, png 등) 업로드 가능</div>
+      <div class="t2">${isVideo?'영상(mp4, mov 등) 업로드':'이미지(jpg, png 등) 업로드'}</div>
     </div>`;
     const dz = document.getElementById('dropzone');
     dz.addEventListener('click', ()=> document.getElementById('fileInput').click());
@@ -796,10 +901,49 @@ function bindFocusPicker(){
   picker.addEventListener('mousedown', e=>{ setFromEvent(e); document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp); });
   picker.addEventListener('touchstart', e=>{ setFromEvent(e); document.addEventListener('touchmove', onMove, {passive:true}); document.addEventListener('touchend', onUp); }, {passive:true});
 }
-document.getElementById('fileInput').addEventListener('change', (e)=>{
-  if(e.target.files.length) handleFile(e.target.files[0], editingId ? items.find(x=>x.id===editingId) : null);
+document.getElementById('fileInput').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files);
+  if(files.length){
+    const it = editingId ? items.find(x=>x.id===editingId) : null;
+    if(document.getElementById('f_type').value==='슬라이드 광고') await handleSlideFiles(files, it);
+    else await handleFile(files[0], it);
+  }
   e.target.value = '';
 });
+async function handleSlideFiles(files, it){
+  for(const file of files){
+    if(!file.type.startsWith('image/')){ showToast('슬라이드 광고는 이미지 파일만 등록할 수 있어요'); continue; }
+    const rawDataUrl = await new Promise(res=>{
+      const reader = new FileReader();
+      reader.onload = ()=> res(reader.result);
+      reader.readAsDataURL(file);
+    });
+    const thumb = await resizeImageDataUrl(rawDataUrl, 900);
+    pendingSlides.push({ thumb, focusX:50, focusY:50 });
+  }
+  renderSlideArea(it);
+}
+function renderSlideArea(it){
+  const area = document.getElementById('mediaArea');
+  let html = `<div class="slide-thumbs" id="slideThumbs">`;
+  pendingSlides.forEach((s,i)=>{
+    html += `<div class="slide-thumb-item" data-idx="${i}">
+      <img src="${s.thumb}">
+      <button type="button" class="slide-thumb-rm" data-rm-idx="${i}">✕</button>
+      <span class="slide-thumb-num">${i+1}</span>
+    </div>`;
+  });
+  html += `<div class="slide-thumb-add" id="slideAddBtn"><div class="ic">＋</div><div>이미지 추가</div></div></div>`;
+  html += `<div style="font-size:11px;color:var(--muted);margin-top:6px;">이미지를 여러 장 등록하면 갤러리 썸네일에서 화살표로 넘겨볼 수 있어요 (${pendingSlides.length}장 등록됨)</div>`;
+  area.innerHTML = html;
+  document.getElementById('slideAddBtn').addEventListener('click', ()=> document.getElementById('fileInput').click());
+  area.querySelectorAll('[data-rm-idx]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      pendingSlides.splice(Number(btn.dataset.rmIdx), 1);
+      renderSlideArea(it);
+    });
+  });
+}
 async function handleFile(file, it){
   if(!file.type.startsWith('video/') && !file.type.startsWith('image/')){
     showToast('영상 또는 이미지 파일만 업로드할 수 있어요'); return;
@@ -868,8 +1012,10 @@ function grabVideoThumb(file){
 async function saveModal(){
   const title = document.getElementById('f_title').value.trim();
   const date = document.getElementById('f_date').value;
+  const type = document.getElementById('f_type').value;
   if(!title){ showToast('제목을 입력해주세요'); return; }
   if(!date){ showToast('일자를 선택해주세요'); return; }
+  if(type==='슬라이드 광고' && pendingSlides.length===0){ showToast('슬라이드 이미지를 1장 이상 등록해주세요'); return; }
 
   let it = editingId ? items.find(x=>x.id===editingId) : null;
   const isNew = !it;
@@ -878,19 +1024,29 @@ async function saveModal(){
   it.date = date;
   it.title = title;
   it.campaign = document.getElementById('f_campaign').value.trim();
-  it.type = document.getElementById('f_type').value;
+  it.type = type;
   it.platform = document.getElementById('f_platform').value;
   it.status = document.getElementById('f_status').value;
   it.cta = document.getElementById('f_cta').value.trim();
   it.creator = document.getElementById('f_creator').value.trim();
   it.notes = document.getElementById('f_notes').value.trim();
 
-  if(pendingBlob){
-    it.blob = pendingBlob; it.mediaType = pendingMediaType; it.mediaName = pendingFileName; it.thumb = pendingThumb;
-  } else if(mediaRemoved){
-    it.blob = null; it.mediaType = 'none'; it.mediaName = null; it.thumb = null;
+  if(type==='슬라이드 광고'){
+    it.slides = pendingSlides.slice();
+    it.mediaType = 'slide';
+    it.blob = null;
+    it.mediaName = null;
+    it.thumb = it.slides[0].thumb;
+    it.focusX = it.slides[0].focusX; it.focusY = it.slides[0].focusY;
+  } else {
+    it.slides = null;
+    if(pendingBlob){
+      it.blob = pendingBlob; it.mediaType = pendingMediaType; it.mediaName = pendingFileName; it.thumb = pendingThumb;
+    } else if(mediaRemoved){
+      it.blob = null; it.mediaType = 'none'; it.mediaName = null; it.thumb = null;
+    }
+    if(it.thumb){ it.focusX = pendingFocusX; it.focusY = pendingFocusY; }
   }
-  if(it.thumb){ it.focusX = pendingFocusX; it.focusY = pendingFocusY; }
 
   await putItem(it);
   if(isNew) items.push(it);
@@ -945,6 +1101,10 @@ function bindEvents(){
   document.getElementById('searchInput').addEventListener('input', render);
   document.getElementById('filterType').addEventListener('change', render);
   document.getElementById('filterStatus').addEventListener('change', render);
+  document.getElementById('f_type').addEventListener('change', ()=>{
+    updateFileInputAccept();
+    renderMediaArea(editingId ? items.find(x=>x.id===editingId) : null);
+  });
   document.addEventListener('keydown', (e)=>{
     if(e.key !== 'Escape') return;
     if(document.getElementById('lightbox').classList.contains('show')) closeLightbox();
