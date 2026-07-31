@@ -25,6 +25,7 @@ a{color:inherit;}
 .hdr .eyebrow{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;}
 .hdr h1{font-size:22px;font-weight:700;margin:0 0 3px;}
 .hdr .sub{font-size:13px;color:var(--muted);}
+.purchase-note{display:flex;align-items:center;gap:6px;background:var(--green-light);border:1px solid #A8DDCA;color:#1A7A5E;font-size:12.5px;font-weight:600;border-radius:10px;padding:9px 13px;margin-bottom:1rem;}
 
 /* metric row */
 .metrics{display:flex;gap:10px;margin:1rem 0 1.2rem;flex-wrap:wrap;}
@@ -157,6 +158,11 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 .gitem .cap .tt{font-size:11.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .gitem .cap .tags{display:flex;gap:4px;margin-top:4px;flex-wrap:nowrap;overflow:hidden;}
 .gitem .cap .tags .tag{white-space:nowrap;flex-shrink:0;font-size:9.5px;padding:1.5px 6px;}
+.gitem.purchased{outline:2.5px solid var(--green);outline-offset:-2.5px;}
+.gitem .purchase-chk{position:absolute;top:6px;left:6px;z-index:3;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:rgba(26,24,48,.55);border-radius:7px;cursor:pointer;}
+.gitem .purchase-chk:hover{background:rgba(26,24,48,.75);}
+.gitem.purchased .purchase-chk{background:var(--green);}
+.gitem .purchase-chk input{width:16px;height:16px;cursor:pointer;accent-color:var(--green);}
 
 /* lightbox */
 #lightbox{background:rgba(10,9,20,.92);}
@@ -178,6 +184,8 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
     <h1>비주얼 갤러리</h1>
     <div class="sub">날짜를 클릭해 그날 만든 이미지·영상을 모아보세요 · 이 브라우저에 저장됩니다</div>
   </div>
+
+  <div class="purchase-note">✅ 구매가 일어난 소재는 체크해주세요</div>
 
   <div class="metrics" id="metrics"></div>
 
@@ -520,6 +528,18 @@ function renderGallery(){
     main.innerHTML = html;
   }
   main.querySelectorAll('.gitem').forEach(el=> el.addEventListener('click', ()=>{ if(!el.classList.contains('was-dragged')) openLightbox(el.dataset.id); }));
+  main.querySelectorAll('[data-purchase-id]').forEach(cb=>{
+    cb.addEventListener('click', e=> e.stopPropagation());
+    cb.addEventListener('change', async e=>{
+      const id = e.target.dataset.purchaseId;
+      const it = items.find(x=>x.id===id);
+      if(!it) return;
+      it.purchased = e.target.checked;
+      await putItem(it);
+      e.target.closest('.gitem').classList.toggle('purchased', it.purchased);
+      showToast(it.purchased ? '구매전환 소재로 표시했어요' : '표시를 해제했어요');
+    });
+  });
   main.querySelectorAll('.gallery-grid').forEach(grid=>{
     const ids = Array.from(grid.querySelectorAll('.gitem')).map(el=>el.dataset.id);
     const groupItems = ids.map(id=> items.find(x=>x.id===id)).filter(Boolean);
@@ -566,7 +586,10 @@ function gitemHtml(it){
   const media = it.thumb ? `<img src="${it.thumb}" loading="lazy" style="object-position:${it.focusX??50}% ${it.focusY??50}%">` : `<div class="noimg">${it.mediaType==='video'?'🎬':it.mediaType==='image'?'🖼':'—'}</div>`;
   const tcolor = TYPE_COLORS[it.type]||'gray';
   const scolor = STATUS_COLORS[it.status]||'gray';
-  return `<div class="gitem" data-id="${it.id}" draggable="true" title="${escapeHtml(it.title)}">
+  return `<div class="gitem ${it.purchased?'purchased':''}" data-id="${it.id}" draggable="true" title="${escapeHtml(it.title)}">
+    <label class="purchase-chk" title="구매전환 소재로 표시" onclick="event.stopPropagation()" ondragstart="event.preventDefault();event.stopPropagation();">
+      <input type="checkbox" data-purchase-id="${it.id}" ${it.purchased?'checked':''}>
+    </label>
     ${media}
     ${it.mediaType==='video' ? '<div class="play">▶</div>' : ''}
     <div class="cap"><div class="tt">${escapeHtml(it.title)}</div><div class="tags"><span class="tag ${tcolor}">${it.type}</span><span class="tag ${scolor}">${it.status}</span>${it.creator?`<span class="tag gray">👤 ${escapeHtml(it.creator)}</span>`:''}</div></div>
