@@ -209,12 +209,30 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 <body>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script type="module">
+  /* Uploads the real video/image file to Vercel Blob storage (free tier, no login needed to view)
+     so every device — not just the one that uploaded it — can actually play the original file,
+     not just a thumbnail preview. */
+  import { upload } from 'https://esm.sh/@vercel/blob@2.6.1/client';
+  const UPLOAD_API = 'https://ozkiz-ad-creative-calendar.vercel.app/api/upload';
+  window.__vercelBlobUpload = async function(file, idHint, opts){
+    opts = opts || {};
+    const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop() : (file.type.split('/')[1] || 'bin');
+    const pathname = `${idHint}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+    const result = await upload(pathname, file, {
+      access: 'public',
+      handleUploadUrl: UPLOAD_API,
+      multipart: !!opts.multipart,
+    });
+    return result.url;
+  };
+</script>
 <div class="wrap">
 
   <div class="hdr">
     <div class="eyebrow">VISUAL GALLERY</div>
     <h1>비주얼 갤러리</h1>
-    <div class="sub">날짜를 클릭해 그날 만든 이미지·영상을 모아보세요 · 이 브라우저에 저장됩니다</div>
+    <div class="sub">날짜를 클릭해 그날 만든 이미지·영상을 모아보세요 · 모든 기기에서 동기화됩니다</div>
   </div>
 
   <div class="purchase-note">✅ 구매가 일어난 소재는 체크해주세요</div>
@@ -869,8 +887,14 @@ function openLightbox(id){
       mediaEl.innerHTML = it.mediaType==='video'
         ? `<video src="${url}" controls autoplay playsinline></video>`
         : `<img src="${url}">`;
+    } else if(it.mediaUrl){
+      // no locally-cached blob (e.g. viewing from a different device), but the original file
+      // was uploaded to Vercel Blob storage, so every device can still play the real file
+      mediaEl.innerHTML = it.mediaType==='video'
+        ? `<video src="${it.mediaUrl}" controls autoplay playsinline></video>`
+        : `<img src="${it.mediaUrl}">`;
     } else if(it.thumb){
-      // no locally-cached original (e.g. viewing from a different device) — show the synced thumbnail instead
+      // no locally-cached original and no uploaded copy (older item) — show the synced thumbnail instead
       mediaEl.innerHTML = `<div class="lb-slide-wrap"><img src="${it.thumb}">${it.mediaType==='video' ? '<div class="lb-slide-count">🎬 이 기기엔 영상 원본이 없어요 · 미리보기만 표시</div>' : ''}</div>`;
     } else {
       mediaEl.innerHTML = `<div class="empty" style="color:rgba(255,255,255,.7)"><div class="ic">${it.mediaType==='video'?'🎬':'🖼'}</div>미디어가 없어요</div>`;
@@ -897,8 +921,9 @@ function renderLbSlide(it){
   const mediaEl = document.getElementById('lbMedia');
   const idx = lbSlideIndex;
   const n = it.slides.length;
+  const slideSrc = it.slides[idx].mediaUrl || it.slides[idx].thumb;
   mediaEl.innerHTML = `<div class="lb-slide-wrap">
-    <img src="${it.slides[idx].thumb}" style="${n>1?'cursor:pointer;':''}">
+    <img src="${slideSrc}" style="${n>1?'cursor:pointer;':''}">
     ${n>1 ? `
       <button class="lb-slide-nav prev" id="lbSlidePrev" title="이전 (←)">‹</button>
       <button class="lb-slide-nav next" id="lbSlideNext" title="다음 (→)">›</button>
@@ -961,8 +986,13 @@ function renderMediaArea(it){
   } else {
     const isVideo = document.getElementById('f_type').value==='비디오';
     const hasRemoteOnly = it && it.thumb && !mediaRemoved; // synced from Firestore, but no original cached on this device
-    area.innerHTML = (hasRemoteOnly ? `<div class="preview"><img src="${it.thumb}"></div>
-      <div style="font-size:11px;color:var(--muted);margin:4px 0 8px;">📡 다른 기기에서 등록된 미디어예요 (이 기기엔 원본 파일이 없어 미리보기만 보여요). 아래에서 새로 올리면 원본이 교체돼요.</div>` : '') +
+    const remotePreview = hasRemoteOnly
+      ? (it.mediaUrl
+          ? (it.mediaType==='video' ? `<video src="${it.mediaUrl}" controls></video>` : `<img src="${it.mediaUrl}">`)
+          : `<img src="${it.thumb}">`)
+      : '';
+    area.innerHTML = (hasRemoteOnly ? `<div class="preview">${remotePreview}</div>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 8px;">${it.mediaUrl ? '📡 이 소재의 원본 파일이에요 (다른 기기에서 업로드됨). 아래에서 새로 올리면 교체돼요.' : '📡 다른 기기에서 등록된 미디어예요 (이 기기엔 원본 파일이 없어 미리보기만 보여요). 아래에서 새로 올리면 원본이 교체돼요.'}</div>` : '') +
       `<div class="dropzone" id="dropzone">
       <div class="ic">${isVideo?'🎬':'🖼️'}</div>
       <div class="t1">클릭하거나 파일을 끌어다 놓으세요</div>
@@ -1022,7 +1052,7 @@ async function handleSlideFiles(files, it){
       reader.readAsDataURL(file);
     });
     const thumb = await resizeImageDataUrl(rawDataUrl, 640);
-    pendingSlides.push({ thumb, focusX:50, focusY:50 });
+    pendingSlides.push({ thumb, focusX:50, focusY:50, _file:file });
   }
   renderSlideArea(it);
 }
@@ -1149,12 +1179,28 @@ async function saveModal(){
   it.creator = document.getElementById('f_creator').value.trim();
   it.notes = document.getElementById('f_notes').value.trim();
 
+  const saveBtn = document.getElementById('saveBtn');
+  const originalSaveLabel = saveBtn.textContent;
+
   if(type==='슬라이드 광고'){
-    it.slides = await ensureSlidesFitFirestore(pendingSlides.slice());
+    // upload any newly-added slide images to Vercel Blob so every device can see the full-res image
+    const needUpload = pendingSlides.some(s=>s._file);
+    if(needUpload && window.__vercelBlobUpload){
+      saveBtn.textContent = '업로드 중...'; saveBtn.disabled = true;
+      for(const s of pendingSlides){
+        if(s._file){
+          try{ s.mediaUrl = await window.__vercelBlobUpload(s._file, it.id); }
+          catch(e){ console.error('slide upload failed', e); showToast('일부 슬라이드는 이 기기에서만 보일 수 있어요 (업로드 실패)'); }
+        }
+      }
+      saveBtn.textContent = originalSaveLabel; saveBtn.disabled = false;
+    }
+    it.slides = (await ensureSlidesFitFirestore(pendingSlides.slice())).map(s=>{ const {_file, ...rest} = s; return rest; });
     it.mediaType = 'slide';
     it.blob = null;
     it.mediaName = null;
     it.thumb = it.slides[0].thumb;
+    it.mediaUrl = null;
     it.focusX = it.slides[0].focusX; it.focusY = it.slides[0].focusY;
     await delBlobLocal(it.id);
   } else {
@@ -1162,8 +1208,14 @@ async function saveModal(){
     if(pendingBlob){
       it.blob = pendingBlob; it.mediaType = pendingMediaType; it.mediaName = pendingFileName; it.thumb = pendingThumb;
       try{ await putBlobLocal(it.id, pendingBlob, pendingMediaType, pendingFileName); }catch(e){ /* ignore */ }
+      if(window.__vercelBlobUpload){
+        saveBtn.textContent = '업로드 중...'; saveBtn.disabled = true;
+        try{ it.mediaUrl = await window.__vercelBlobUpload(pendingBlob, it.id, { multipart: pendingMediaType==='video' }); }
+        catch(e){ console.error('media upload failed', e); showToast('업로드에 실패했어요 (이 기기에서만 재생 가능해요)'); }
+        saveBtn.textContent = originalSaveLabel; saveBtn.disabled = false;
+      }
     } else if(mediaRemoved){
-      it.blob = null; it.mediaType = 'none'; it.mediaName = null; it.thumb = null;
+      it.blob = null; it.mediaType = 'none'; it.mediaName = null; it.thumb = null; it.mediaUrl = null;
       await delBlobLocal(it.id);
     }
     if(it.thumb){ it.focusX = pendingFocusX; it.focusY = pendingFocusY; }
