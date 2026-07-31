@@ -207,6 +207,8 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 </style>
 </head>
 <body>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <div class="wrap">
 
   <div class="hdr">
@@ -316,26 +318,84 @@ tr.row:hover{background:var(--surface2);cursor:pointer;}
 <div class="toast" id="toast"></div>
 
 <script>
-/* ---------- IndexedDB ---------- */
-const DB_NAME = 'ozkizAdCreativeCalendar', STORE = 'creatives';
-let db;
-function openDB(){
+/* ---------- Firebase (shared cloud sync so every device sees the same creatives) ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyB52OfUSi3leWVrbigAr7aZH6RYHWqt8_8",
+  authDomain: "ozkiz-ad-calendar.firebaseapp.com",
+  projectId: "ozkiz-ad-calendar",
+  storageBucket: "ozkiz-ad-calendar.firebasestorage.app",
+  messagingSenderId: "854719121979",
+  appId: "1:854719121979:web:cccfd0ff4d3d06f1f72a1e"
+};
+firebase.initializeApp(firebaseConfig);
+const fsdb = firebase.firestore();
+fsdb.settings({ ignoreUndefinedProperties: true }); // some fields (e.g. focusX/Y on media-less items) may be unset
+const creativesCol = fsdb.collection('creatives');
+
+/* ---------- Local blob cache (per-browser only) ----------
+   Firebase Storage (for hosting the original video/image files) requires a paid plan,
+   so original video/image files are NOT synced across devices. Instead:
+   - Every device shares the same item list + thumbnail images via Firestore (free).
+   - The browser that originally uploaded a file also caches the full-resolution
+     blob locally, so playback/edit on that device still uses the original quality.
+   - Other devices simply display the synced thumbnail (and, for video, a poster frame). */
+const BLOB_DB_NAME = 'ozkizAdCreativeCalendarBlobs', BLOB_STORE = 'blobs';
+let blobDb;
+function openBlobDB(){
   return new Promise((resolve,reject)=>{
-    const req = indexedDB.open(DB_NAME, 1);
+    const req = indexedDB.open(BLOB_DB_NAME, 1);
     req.onupgradeneeded = e => {
       const d = e.target.result;
-      if(!d.objectStoreNames.contains(STORE)){
-        d.createObjectStore(STORE,{keyPath:'id'});
-      }
+      if(!d.objectStoreNames.contains(BLOB_STORE)) d.createObjectStore(BLOB_STORE,{keyPath:'id'});
     };
-    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onsuccess = e => { blobDb = e.target.result; resolve(blobDb); };
     req.onerror = e => reject(e);
   });
 }
-function txStore(mode){ return db.transaction(STORE, mode).objectStore(STORE); }
-function getAll(){ return new Promise((res,rej)=>{ const r = txStore('readonly').getAll(); r.onsuccess=()=>res(r.result); r.onerror=rej; }); }
-function putItem(item){ return new Promise((res,rej)=>{ const r = txStore('readwrite').put(item); r.onsuccess=()=>res(); r.onerror=rej; }); }
-function delItem(id){ return new Promise((res,rej)=>{ const r = txStore('readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=rej; }); }
+function blobStore(mode){ return blobDb.transaction(BLOB_STORE, mode).objectStore(BLOB_STORE); }
+function putBlobLocal(id, blob, mediaType, mediaName){ return new Promise((res,rej)=>{ const r=blobStore('readwrite').put({id, blob, mediaType, mediaName}); r.onsuccess=()=>res(); r.onerror=rej; }); }
+function getBlobLocal(id){ return new Promise((res,rej)=>{ const r=blobStore('readonly').get(id); r.onsuccess=()=>res(r.result||null); r.onerror=rej; }); }
+function delBlobLocal(id){ return new Promise((res,rej)=>{ const r=blobStore('readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=rej; }); }
+
+/* ---------- Firestore data access (call sites elsewhere in the app are unchanged) ---------- */
+function getAll(){ return items.slice(); }
+async function putItem(item){
+  const { blob, ...rest } = item;
+  await creativesCol.doc(item.id).set(rest);
+}
+async function delItem(id){
+  await creativesCol.doc(id).delete();
+  try{ await delBlobLocal(id); }catch(e){ /* ignore */ }
+}
+
+/* one-time: bring this browser's existing (pre-cloud-sync) local data up into Firestore,
+   so creatives that were only ever saved in ken's browser become visible to everyone. */
+async function migrateFromOldIndexedDB(){
+  if(localStorage.getItem('migratedToFirestoreV1')) return;
+  try{
+    const oldDb = await new Promise((res)=>{
+      const req = indexedDB.open('ozkizAdCreativeCalendar', 1);
+      req.onsuccess = e => res(e.target.result);
+      req.onerror = () => res(null);
+    });
+    if(!oldDb || !oldDb.objectStoreNames.contains('creatives')){ localStorage.setItem('migratedToFirestoreV1','1'); return; }
+    const oldItems = await new Promise((res,rej)=>{
+      const tx = oldDb.transaction('creatives','readonly');
+      const r = tx.objectStore('creatives').getAll();
+      r.onsuccess = () => res(r.result); r.onerror = rej;
+    });
+    if(!oldItems.length){ localStorage.setItem('migratedToFirestoreV1','1'); return; }
+    const snap = await creativesCol.limit(1).get();
+    if(!snap.empty){ localStorage.setItem('migratedToFirestoreV1','1'); return; }
+    for(const it of oldItems){
+      if(it.blob){ try{ await putBlobLocal(it.id, it.blob, it.mediaType, it.mediaName); }catch(e){ /* ignore */ } }
+      const { blob, ...rest } = it;
+      await creativesCol.doc(it.id).set(rest);
+    }
+    localStorage.setItem('migratedToFirestoreV1','1');
+    showToast(oldItems.length+'개 소재를 서버로 이전했어요');
+  }catch(e){ console.error('migration failed', e); }
+}
 
 /* ---------- State ---------- */
 let items = [];
@@ -358,16 +418,29 @@ function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.get
 function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
 
 /* ---------- Init ---------- */
+let didInitialMaintenance = false;
 async function init(){
-  await openDB();
-  items = await getAll();
+  await openBlobDB();
   const now = new Date();
   curYear = now.getFullYear(); curMonth = now.getMonth();
   populateFilterOptions();
   bindEvents();
-  render();
-  healOversizedThumbs();
-  migrateLegacyTypes();
+  await migrateFromOldIndexedDB();
+  creativesCol.onSnapshot(async snap=>{
+    const docs = snap.docs.map(d=>d.data());
+    for(const it of docs){
+      if(it.mediaType==='image' || it.mediaType==='video'){
+        try{ const cached = await getBlobLocal(it.id); if(cached) it.blob = cached.blob; }catch(e){ /* ignore */ }
+      }
+    }
+    items = docs;
+    render();
+    if(!didInitialMaintenance){
+      didInitialMaintenance = true;
+      healOversizedThumbs();
+      migrateLegacyTypes();
+    }
+  }, err=>{ console.error(err); showToast('동기화 오류: 인터넷 연결을 확인해주세요'); });
 }
 /* one-time cleanup: old items used a 7-option 유형 taxonomy (릴스/피드/캐러셀/배너/카드뉴스/스토리/기타).
    Map any of those onto the new 3-option 이미지/비디오/슬라이드 광고 taxonomy based on their actual media. */
@@ -942,7 +1015,7 @@ async function handleSlideFiles(files, it){
       reader.onload = ()=> res(reader.result);
       reader.readAsDataURL(file);
     });
-    const thumb = await resizeImageDataUrl(rawDataUrl, 900);
+    const thumb = await resizeImageDataUrl(rawDataUrl, 640);
     pendingSlides.push({ thumb, focusX:50, focusY:50 });
   }
   renderSlideArea(it);
@@ -1009,6 +1082,21 @@ function resizeImageDataUrl(dataUrl, maxW){
     img.src = dataUrl;
   });
 }
+/* Firestore documents are capped at 1MiB; shrink slide thumbnails further if a
+   many-slide or high-detail set of images would risk exceeding that budget. */
+async function ensureSlidesFitFirestore(slides){
+  let arr = slides;
+  let width = 640;
+  for(let iter=0; iter<5; iter++){
+    const total = arr.reduce((s,x)=> s + (x.thumb ? x.thumb.length : 0), 0);
+    if(total <= 900000) return arr;
+    width = Math.round(width * 0.7);
+    const next = [];
+    for(const s of arr){ next.push({ ...s, thumb: await resizeImageDataUrl(s.thumb, width) }); }
+    arr = next;
+  }
+  return arr;
+}
 function grabVideoThumb(file){
   return new Promise((resolve)=>{
     const video = document.createElement('video');
@@ -1056,18 +1144,21 @@ async function saveModal(){
   it.notes = document.getElementById('f_notes').value.trim();
 
   if(type==='슬라이드 광고'){
-    it.slides = pendingSlides.slice();
+    it.slides = await ensureSlidesFitFirestore(pendingSlides.slice());
     it.mediaType = 'slide';
     it.blob = null;
     it.mediaName = null;
     it.thumb = it.slides[0].thumb;
     it.focusX = it.slides[0].focusX; it.focusY = it.slides[0].focusY;
+    await delBlobLocal(it.id);
   } else {
     it.slides = null;
     if(pendingBlob){
       it.blob = pendingBlob; it.mediaType = pendingMediaType; it.mediaName = pendingFileName; it.thumb = pendingThumb;
+      try{ await putBlobLocal(it.id, pendingBlob, pendingMediaType, pendingFileName); }catch(e){ /* ignore */ }
     } else if(mediaRemoved){
       it.blob = null; it.mediaType = 'none'; it.mediaName = null; it.thumb = null;
+      await delBlobLocal(it.id);
     }
     if(it.thumb){ it.focusX = pendingFocusX; it.focusY = pendingFocusY; }
   }
