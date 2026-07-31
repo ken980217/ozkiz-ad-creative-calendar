@@ -869,6 +869,9 @@ function openLightbox(id){
       mediaEl.innerHTML = it.mediaType==='video'
         ? `<video src="${url}" controls autoplay playsinline></video>`
         : `<img src="${url}">`;
+    } else if(it.thumb){
+      // no locally-cached original (e.g. viewing from a different device) — show the synced thumbnail instead
+      mediaEl.innerHTML = `<div class="lb-slide-wrap"><img src="${it.thumb}">${it.mediaType==='video' ? '<div class="lb-slide-count">🎬 이 기기엔 영상 원본이 없어요 · 미리보기만 표시</div>' : ''}</div>`;
     } else {
       mediaEl.innerHTML = `<div class="empty" style="color:rgba(255,255,255,.7)"><div class="ic">${it.mediaType==='video'?'🎬':'🖼'}</div>미디어가 없어요</div>`;
     }
@@ -957,7 +960,10 @@ function renderMediaArea(it){
     if(thumbSrc) bindFocusPicker();
   } else {
     const isVideo = document.getElementById('f_type').value==='비디오';
-    area.innerHTML = `<div class="dropzone" id="dropzone">
+    const hasRemoteOnly = it && it.thumb && !mediaRemoved; // synced from Firestore, but no original cached on this device
+    area.innerHTML = (hasRemoteOnly ? `<div class="preview"><img src="${it.thumb}"></div>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 8px;">📡 다른 기기에서 등록된 미디어예요 (이 기기엔 원본 파일이 없어 미리보기만 보여요). 아래에서 새로 올리면 원본이 교체돼요.</div>` : '') +
+      `<div class="dropzone" id="dropzone">
       <div class="ic">${isVideo?'🎬':'🖼️'}</div>
       <div class="t1">클릭하거나 파일을 끌어다 놓으세요</div>
       <div class="t2">${isVideo?'영상(mp4, mov 등) 업로드':'이미지(jpg, png 등) 업로드'}</div>
